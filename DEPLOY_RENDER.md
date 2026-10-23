@@ -57,11 +57,14 @@ All demo dates are set as if today were **15 March 2027**, so the demo tasks sta
 
 ## 4. Check it works
 
-1. In the **Logs** tab you should see `Setup: 15 tables created.` and `Ready: admin.demo@example.com` on the first start.
-2. Open the link and log in with a demo account (password = your `DEMO_PASSWORD`):
-   - `james.carter.demo@example.com` (volunteer)
-   - `emma.wilson.demo@example.com` (help seeker)
-   - `admin.demo@example.com` (administrator)
+1. In the **Logs** tab you should see `Setup: 15 tables created.` and `Ready: daniel.brooks.demo@example.com (administrator)` on the first start.
+2. Open the link and log in with a demo account (password = your `DEMO_PASSWORD`). The team's personas:
+   - `nadia.rossi.demo@example.com` (Nadia, help seeker)
+   - `adam.foster.demo@example.com` (Adam, volunteer, remote)
+   - `sophie.williams.demo@example.com` (Sophie, volunteer, in person)
+   - `daniel.brooks.demo@example.com` (Daniel, administrator)
+
+   Also available: `emma.wilson.demo@example.com` (help seeker), `james.carter.demo@example.com` (volunteer), `sofia.martinez.demo@example.com` (both) and `admin.demo@example.com` (administrator).
 3. If you see the demo tasks and your name in the header, the database is connected.
 4. If login fails and the site shows sample data only, check the environment variables in Render (a typo in the host or password is the usual cause) and look at the **Logs** tab.
 

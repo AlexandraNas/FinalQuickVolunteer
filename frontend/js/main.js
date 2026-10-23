@@ -465,9 +465,9 @@ function setUpTaskFilters() {
   const typeBox = document.getElementById("task-type");
   const lengthBox = document.getElementById("task-duration");
   const distanceBox = document.getElementById("task-distance");
-  const areaBox = document.getElementById("task-area");
+  const placeBox = document.getElementById("task-place");
   const verifiedBox = document.getElementById("task-verified");
-  const distanceHint = document.querySelector("[data-distance-hint]");
+  const mapBox = document.getElementById("task-map");
   const cards = () => Array.from(list.querySelectorAll(".task-card"));
 
   // Search text can also come from the mobile menu search (?q=...)
@@ -476,47 +476,104 @@ function setUpTaskFilters() {
 
   let active = "all";
 
-  // Neighbourhood options come from the tasks themselves
-  function fillAreas() {
-    if (!areaBox) return;
-    const chosen = areaBox.value;
-    const areas = Array.from(new Set(cards().map((c) => c.dataset.area).filter(Boolean))).sort();
-    areaBox.innerHTML = '<option value="">All</option>' +
-      areas.map((a) => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join("");
-    if (areas.includes(chosen)) areaBox.value = chosen;
+  // Where distances are measured from: the postcode typed in the filter,
+  // otherwise the member's own postcode.
+  function placeText() { return placeBox ? placeBox.value.trim() : ""; }
+  function origin() {
+    const typed = districtOf(placeText());
+    return typed || districtOf(loadProfile().postcode);
   }
 
-  // Distance needs the member's postcode
   function prepareDistance() {
-    const profile = loadProfile();
-    const home = districtOf(profile.postcode);
+    const from = origin();
     if (distanceBox) {
-      distanceBox.disabled = !home;
-      if (!home) distanceBox.value = "";
+      distanceBox.disabled = !from;
+      if (!from) distanceBox.value = "";
     }
-    if (distanceHint) distanceHint.hidden = !!home;
     cards().forEach((card) => {
-      const miles = taskMiles(card, profile);
+      const miles = taskMiles(card, { postcode: from || "" });
       card.dataset.miles = miles == null ? "" : String(miles);
     });
     showDistances(list);
   }
 
-  function refresh() {
-    markMatches();
-    fillAreas();
-    prepareDistance();
+  function sortCards() {
     // Best match first (only when the member has skills), then nearest
     const near = (c) => (c.dataset.miles === "" ? 99 : Number(c.dataset.miles));
     cards()
       .sort((a, b) => (b.dataset.match === "true") - (a.dataset.match === "true") || near(a) - near(b))
       .forEach((card) => list.appendChild(card));
+  }
+
+  function refresh() {
+    markMatches();
+    prepareDistance();
+    sortCards();
     apply();
+  }
+
+  // Map of the tasks shown: a circle for the search area and one small circle
+  // for the area of each in person task (never the exact address).
+  let map = null;
+  let layer = null;
+  function drawMap(maxMiles) {
+    if (!mapBox || !window.L || !window.QV_DISTRICTS) return;
+    const from = origin();
+    const visible = cards().filter((c) => !c.hidden && c.dataset.mode === "in_person" && districtOf(c.dataset.postcode));
+    if (!from && !visible.length) { mapBox.hidden = true; return; }
+    mapBox.hidden = false;
+    if (!map) {
+      map = L.map(mapBox.querySelector(".area-map__map"), { scrollWheelZoom: false, dragging: !L.Browser.mobile, tap: false });
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 18,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      }).addTo(map);
+    }
+    if (layer) layer.remove();
+    layer = L.featureGroup().addTo(map);
+    if (from) {
+      const c = window.QV_DISTRICTS[from];
+      L.circle(c, { radius: (maxMiles || 3) * 1609.34, color: "#166a3e", weight: 2, fillColor: "#166a3e", fillOpacity: 0.08 }).addTo(layer);
+    }
+    const groups = {};
+    visible.forEach((card) => { const d = districtOf(card.dataset.postcode); (groups[d] = groups[d] || []).push(card); });
+    Object.keys(groups).forEach((d) => {
+      const items = groups[d].map((card) => {
+        const title = card.querySelector("h2, h3");
+        const link = card.querySelector("a[href]");
+        const text = escapeHtml(title ? title.textContent.trim() : "Task");
+        return link ? `<a href="${escapeHtml(link.getAttribute("href"))}">${text}</a>` : text;
+      });
+      const name = groups[d][0].dataset.area || d;
+      L.circle(window.QV_DISTRICTS[d], { radius: 450, color: "#0d1511", weight: 1, fillColor: "#f2b84b", fillOpacity: 0.7 })
+        .bindPopup(`<strong>${escapeHtml(name)}</strong><br>${items.join("<br>")}`)
+        .addTo(layer);
+    });
+    const fit = () => {
+      map.invalidateSize();
+      if (layer.getLayers().length) map.fitBounds(layer.getBounds(), { padding: [16, 16], maxZoom: 14 });
+    };
+    map.setView([51.5, -0.1], 11);
+    fit();
+    requestAnimationFrame(fit);
+  }
+  // Fit again when the map scrolls into view (its size is known by then)
+  if (mapBox && "IntersectionObserver" in window) {
+    new IntersectionObserver((entries) => {
+      if (map && layer && entries.some((e) => e.isIntersecting)) {
+        map.invalidateSize();
+        if (layer.getLayers().length) map.fitBounds(layer.getBounds(), { padding: [16, 16], maxZoom: 14 });
+      }
+    }).observe(mapBox);
   }
 
   function apply() {
     const text = search.value.trim().toLowerCase();
-    const maxMiles = distanceBox && distanceBox.value ? Number(distanceBox.value) : 0;
+    const place = placeText();
+    const placeDistrict = districtOf(place);
+    let maxMiles = distanceBox && distanceBox.value ? Number(distanceBox.value) : 0;
+    // A postcode in the search box: in person tasks around it (3 miles unless a distance is picked)
+    if (placeDistrict && !maxMiles) maxMiles = 3;
     let shown = 0;
     cards().forEach((card) => {
       const minutes = Number(card.dataset.minutes);
@@ -529,7 +586,16 @@ function setUpTaskFilters() {
       // Distance applies to in person tasks; remote tasks can be done from anywhere
       const passDistance = !maxMiles || card.dataset.mode !== "in_person" ||
         (card.dataset.miles !== "" && Number(card.dataset.miles) <= maxMiles);
-      const passArea = !areaBox || !areaBox.value || card.dataset.area === areaBox.value;
+      // Postcode or area: only in person tasks in that place
+      let passArea = true;
+      if (place && !placeDistrict) {
+        const q = place.toLowerCase().replace(/\s+/g, "");
+        passArea = card.dataset.mode === "in_person" &&
+          ((card.dataset.area || "").toLowerCase().replace(/\s+/g, "").includes(q) ||
+           (card.dataset.postcode || "").toLowerCase().replace(/\s+/g, "").startsWith(q));
+      } else if (placeDistrict) {
+        passArea = card.dataset.mode === "in_person";
+      }
       const passVerified = !verifiedBox || !verifiedBox.checked || card.dataset.verified === "true";
       const passSearch = !text || card.textContent.toLowerCase().includes(text);
       const visible = passFilter && passType && passLength && passDistance && passArea && passVerified && passSearch;
@@ -538,9 +604,10 @@ function setUpTaskFilters() {
     });
     if (count) count.textContent = shown;
     const clear = document.getElementById("clear-filters");
-    const any = active !== "all" || text || [typeBox, lengthBox, distanceBox, areaBox].some((b) => b && b.value) || (verifiedBox && verifiedBox.checked);
+    const any = active !== "all" || text || place || [typeBox, lengthBox, distanceBox].some((b) => b && b.value) || (verifiedBox && verifiedBox.checked);
     if (clear) clear.hidden = !any;
     empty.classList.toggle("is-visible", shown === 0);
+    drawMap(maxMiles);
   }
 
   chips.forEach((chip) => {
@@ -551,15 +618,18 @@ function setUpTaskFilters() {
     });
   });
   search.addEventListener("input", apply);
-  // Type of help, duration, distance, neighbourhood and verified members (US-05)
-  [typeBox, lengthBox, distanceBox, areaBox, verifiedBox].forEach((box) => { if (box) box.addEventListener("change", apply); });
+  // Type of help, duration, distance, postcode or area and verified members (US-05)
+  if (placeBox) placeBox.addEventListener("input", () => { prepareDistance(); sortCards(); apply(); });
+  [typeBox, lengthBox, distanceBox, verifiedBox].forEach((box) => { if (box) box.addEventListener("change", apply); });
   // Clear filters: back to all tasks with nothing selected
   document.querySelectorAll("#clear-filters, [data-clear-filters]").forEach((btn) => btn.addEventListener("click", () => {
     active = "all";
     chips.forEach((c) => c.setAttribute("aria-pressed", String(c.dataset.filter === "all")));
     search.value = "";
-    [typeBox, lengthBox, distanceBox, areaBox].forEach((b) => { if (b) b.value = ""; });
+    [typeBox, lengthBox, distanceBox, placeBox].forEach((b) => { if (b) b.value = ""; });
     if (verifiedBox) verifiedBox.checked = false;
+    prepareDistance();
+    sortCards();
     apply();
   }));
   list.qvApply = apply;
@@ -759,18 +829,28 @@ function setUpTaskDetail() {
   });
 }
 
+/* Same "today" as the demo data in the database (DEMO_NOW). */
+const QV_DEMO_TODAY = "2027-03-15";
+
 /* Post a help request. In live mode api.js uses the Flask API. */
 function setUpPostRequest() {
   const form = document.getElementById("post-form");
   if (!form) return;
   const profile = loadProfile();
   const inPerson = form.querySelector("[data-in-person-only]");
-  // Deadline: the latest date the task should be done by (cannot be in the past).
-  // The date the request is created is saved by the server, not typed by the user.
+  // Deadline: the latest date the task should be done by. The demo runs as if today
+  // were 15 March 2027 (same date as the demo data), so the date starts one week later.
   const date = form.querySelector("#req-deadline");
   if (profile.postcode) form.querySelector("#req-postcode").value = profile.postcode;
   if (profile.area) form.querySelector("#req-area").value = profile.area;
-  date.min = new Date().toISOString().slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10);
+  const demoToday = today < QV_DEMO_TODAY ? QV_DEMO_TODAY : today;
+  date.min = demoToday;
+  if (!date.value) {
+    const week = new Date(demoToday + "T12:00:00");
+    week.setDate(week.getDate() + 7);
+    date.value = week.toISOString().slice(0, 10);
+  }
 
   form.querySelectorAll("[name=req-mode]").forEach((r) => r.addEventListener("change", () => {
     inPerson.hidden = r.value !== "in_person";

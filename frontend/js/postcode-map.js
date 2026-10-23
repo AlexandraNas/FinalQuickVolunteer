@@ -31,7 +31,7 @@
     if (!postcode || !area) return;
     const canMap = !!window.L;
 
-    // Map box, placed under the row that holds the postcode and neighbourhood
+    // Map box, placed under the postcode field
     const row = postcode.closest(".field-row") || postcode.closest(".field");
     const box = document.createElement("figure");
     box.className = "area-map";
@@ -54,12 +54,7 @@
 
     function caption(district) {
       const name = area.value.trim();
-      if (!ids.distance) {
-        note.textContent = `Approximate area of the task: ${district}${name ? ", " + name : ""}. Volunteers never see the exact address.`;
-      } else {
-        const miles = radius() / MILE;
-        note.textContent = `Your area: ${district}${name ? ", " + name : ""}. The circle shows up to ${miles} ${miles === 1 ? "mile" : "miles"} around it.`;
-      }
+      note.textContent = name && name !== district ? `${name}, ${district}` : district;
     }
 
     function draw(lat, lng, district) {

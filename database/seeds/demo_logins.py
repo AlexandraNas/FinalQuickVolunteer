@@ -62,10 +62,13 @@ def main():
             cursor.execute(
                 """
                 INSERT INTO users (first_name, last_name, email,
-                                   password_hash, account_type, account_status)
-                VALUES (%s, %s, %s, %s, 'admin', 'active')
+                                   password_hash, account_type, account_status,
+                                   created_at)
+                VALUES (%s, %s, %s, %s, 'admin', 'active',
+                        %s - INTERVAL 60 DAY)
                 """,
-                (first, last, email, password_hash),
+                (first, last, email, password_hash,
+                 os.getenv("DEMO_NOW", "2027-03-15 10:00:00")),
             )
         print("Ready: " + email + " (administrator)")
         connection.commit()

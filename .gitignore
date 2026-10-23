@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Secrets: never upload these
+.env
+.env.*
+!.env.example
+instance/
+
+# Uploaded ID documents (private)
+private_uploads/
+
+# Local databases and test leftovers
+*.db
+*.db-journal
+cookies.txt
+.pytest_cache/
+.coverage
+
+# Mac and editor files
+.DS_Store
+.vscode/

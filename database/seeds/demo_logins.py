@@ -17,12 +17,19 @@ from werkzeug.security import generate_password_hash
 
 # Fictional demo accounts from seed_demo.py that can log in.
 DEMO_LOGINS = [
+    "nadia.rossi.demo@example.com",      # persona: help seeker
+    "adam.foster.demo@example.com",      # persona: volunteer (remote)
+    "sophie.williams.demo@example.com",  # persona: volunteer (in person)
     "emma.wilson.demo@example.com",      # help seeker
     "james.carter.demo@example.com",     # volunteer
     "sofia.martinez.demo@example.com",   # both
 ]
 
-ADMIN = ("Demo", "Admin", "admin.demo@example.com")
+# Administrators: Daniel Brooks is the team's admin persona.
+ADMINS = [
+    ("Daniel", "Brooks", "daniel.brooks.demo@example.com"),
+    ("Demo", "Admin", "admin.demo@example.com"),
+]
 
 
 def main():
@@ -51,26 +58,26 @@ def main():
             )
             print(("Ready: " if cursor.rowcount else "Not found: ") + email)
 
-        first, last, email = ADMIN
-        cursor.execute("SELECT user_id FROM users WHERE email = %s", (email,))
-        if cursor.fetchone():
-            cursor.execute(
-                "UPDATE users SET password_hash = %s WHERE email = %s",
-                (password_hash, email),
-            )
-        else:
-            cursor.execute(
-                """
-                INSERT INTO users (first_name, last_name, email,
-                                   password_hash, account_type, account_status,
-                                   created_at)
-                VALUES (%s, %s, %s, %s, 'admin', 'active',
-                        %s - INTERVAL 60 DAY)
-                """,
-                (first, last, email, password_hash,
-                 os.getenv("DEMO_NOW", "2027-03-15 10:00:00")),
-            )
-        print("Ready: " + email + " (administrator)")
+        for first, last, email in ADMINS:
+            cursor.execute("SELECT user_id FROM users WHERE email = %s", (email,))
+            if cursor.fetchone():
+                cursor.execute(
+                    "UPDATE users SET password_hash = %s WHERE email = %s",
+                    (password_hash, email),
+                )
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO users (first_name, last_name, email,
+                                       password_hash, account_type, account_status,
+                                       created_at)
+                    VALUES (%s, %s, %s, %s, 'admin', 'active',
+                            %s - INTERVAL 60 DAY)
+                    """,
+                    (first, last, email, password_hash,
+                     os.getenv("DEMO_NOW", "2027-03-15 10:00:00")),
+                )
+            print("Ready: " + email + " (administrator)")
         connection.commit()
     finally:
         cursor.close()

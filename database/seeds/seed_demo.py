@@ -54,6 +54,23 @@ SKILLS = [
 # about me, availability, preferred mode, max distance (miles), skills
 
 DEMO_USERS = [
+    # ----- The team's personas (they can log in with DEMO_PASSWORD) -----
+    ("Nadia", "Rossi", "nadia.rossi.demo@example.com", "help_seeker",
+     "E8 1AA", "Hackney",
+     "Retired teacher. I live on my own and like to stay independent, but sometimes I need a little help.",
+     None, "in_person", 1, ["Friendly calls"]),
+
+    ("Adam", "Foster", "adam.foster.demo@example.com", "volunteer",
+     "N7 6AA", "Holloway",
+     "Full time professional and city commuter. I help in my spare moments, usually by phone or online.",
+     "Lunch breaks, evenings", "remote", 3, ["IT support", "Phones and apps", "Friendly calls"]),
+
+    ("Sophie", "Williams", "sophie.williams.demo@example.com", "volunteer",
+     "E8 3AA", "Hackney",
+     "Marketing manager with free evenings and weekends. I like practical help in my neighbourhood.",
+     "Evenings, weekends", "in_person", 3, ["Shopping", "Cooking", "Gardening"]),
+
+    # ----- Other fictional members -----
     ("Emma", "Wilson", "emma.wilson.demo@example.com", "help_seeker",
      "E15 1AA", "Stratford",
      "Retired teacher who loves the local library.",
@@ -109,7 +126,7 @@ DEMO_USERS = [
      "I enjoy company and a good cup of tea.",
      None, "in_person", 1, ["Friendly calls"]),
 
-    ("Daniel", "Lewis", "daniel.lewis.demo@example.com", "volunteer",
+    ("Leo", "Lewis", "leo.lewis.demo@example.com", "volunteer",
      "SE1 1AA", "Southwark",
      "Retired engineer with time to help in the community.",
      "Flexible", "any", 5, ["DIY and small repairs", "Writing and forms", "Cleaning"]),
@@ -118,6 +135,8 @@ DEMO_USERS = [
 # Members whose ID document was checked by an administrator.
 # The document file is deleted after the decision, so no reference is kept.
 VERIFIED_MEMBERS = [
+    "sophie.williams.demo@example.com",
+    "adam.foster.demo@example.com",
     "james.carter.demo@example.com",
     "sofia.martinez.demo@example.com",
     "noah.williams.demo@example.com",
@@ -134,10 +153,20 @@ VERIFIED_MEMBERS = [
 # deadline in days from today (negative = past), status, skills needed
 
 DEMO_TASKS = [
-    ("emma.wilson.demo@example.com", "Shopping and errands",
+    ("nadia.rossi.demo@example.com", "Shopping and errands",
      "Help with weekly grocery shopping",
-     "Looking for someone to help collect groceries from a local supermarket.",
-     "Stratford", "E15 1AA", "in_person", 45, 4, "open", ["Shopping"]),
+     "My weekly shop from the supermarket on the high street. The order is short and paid for; I need someone to carry it home for me.",
+     "Hackney", "E8 1AA", "in_person", 30, 4, "open", ["Shopping"]),
+
+    ("nadia.rossi.demo@example.com", "Tech help",
+     "Set up video calls on my tablet",
+     "I would like to call my daughter on video. Please help me set it up by phone, step by step.",
+     None, None, "remote", 30, 3, "filled", ["Phones and apps"]),
+
+    ("nadia.rossi.demo@example.com", "Shopping and errands",
+     "Collect a click and collect order",
+     "A small grocery order to collect from the shop near the station.",
+     "Hackney", "E8 1AA", "in_person", 30, -6, "completed", ["Shopping"]),
 
     ("amelia.taylor.demo@example.com", "Tech help",
      "Help setting up a new laptop",
@@ -217,31 +246,38 @@ DEMO_TASKS = [
 # task title, volunteer email, status
 
 DEMO_APPLICATIONS = [
+    ("Help with weekly grocery shopping", "sophie.williams.demo@example.com", "pending"),
     ("Help with weekly grocery shopping", "james.carter.demo@example.com", "pending"),
-    ("Help with weekly grocery shopping", "oliver.brown.demo@example.com", "pending"),
+    ("Set up video calls on my tablet", "adam.foster.demo@example.com", "accepted"),
+    ("Collect a click and collect order", "sophie.williams.demo@example.com", "completed"),
+    ("A friendly weekly phone call", "adam.foster.demo@example.com", "pending"),
     ("Help setting up a new laptop", "noah.williams.demo@example.com", "pending"),
     ("Help setting up a new laptop", "sofia.martinez.demo@example.com", "pending"),
-    ("Help tidying a small kitchen", "daniel.lewis.demo@example.com", "pending"),
+    ("Help tidying a small kitchen", "leo.lewis.demo@example.com", "pending"),
     ("Collect a few groceries", "james.carter.demo@example.com", "pending"),
     ("Help with email settings", "noah.williams.demo@example.com", "pending"),
     ("Help preparing study notes", "mia.roberts.demo@example.com", "pending"),
     ("Help installing useful mobile apps", "noah.williams.demo@example.com", "pending"),
     ("A friendly weekly phone call", "mia.roberts.demo@example.com", "pending"),
-    ("Help filling in a council form", "daniel.lewis.demo@example.com", "pending"),
+    ("Help filling in a council form", "leo.lewis.demo@example.com", "pending"),
 
     ("Help connecting a printer", "noah.williams.demo@example.com", "accepted"),
     ("Help connecting a printer", "oliver.brown.demo@example.com", "rejected"),
-    ("Fix a wobbly shelf", "daniel.lewis.demo@example.com", "accepted"),
+    ("Fix a wobbly shelf", "leo.lewis.demo@example.com", "accepted"),
 
     ("Help with online learning tools", "mia.roberts.demo@example.com", "completed"),
     ("Help with online learning tools", "james.carter.demo@example.com", "rejected"),
     ("Help with supermarket collection", "james.carter.demo@example.com", "completed"),
     ("Help organising smartphone contacts", "noah.williams.demo@example.com", "completed"),
-    ("Help organising smartphone contacts", "daniel.lewis.demo@example.com", "rejected"),
+    ("Help organising smartphone contacts", "leo.lewis.demo@example.com", "rejected"),
 ]
 
 # Reviews on completed tasks: task title, reviewer email, rating, comment
 DEMO_REVIEWS = [
+    ("Collect a click and collect order", "nadia.rossi.demo@example.com", 5,
+     "Sophie was on time, kind and brought the receipt. Thank you!"),
+    ("Collect a click and collect order", "sophie.williams.demo@example.com", 5,
+     "Lovely to meet Nadia, happy to help again."),
     ("Help with online learning tools", "isabella.clark.demo@example.com", 5,
      "Clear and patient, thank you."),
     ("Help with online learning tools", "mia.roberts.demo@example.com", 5,

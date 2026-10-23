@@ -31,6 +31,10 @@ The website now lives in `frontend/` and Flask serves it. Pages and API share on
 ## Demo logins (password = your DEMO_PASSWORD)
 | Email | Account |
 |---|---|
+| nadia.rossi.demo@example.com | Persona: Nadia, help seeker |
+| adam.foster.demo@example.com | Persona: Adam, volunteer (remote) |
+| sophie.williams.demo@example.com | Persona: Sophie, volunteer (in person) |
+| daniel.brooks.demo@example.com | Persona: Daniel, administrator |
 | emma.wilson.demo@example.com | Help seeker |
 | james.carter.demo@example.com | Volunteer |
 | sofia.martinez.demo@example.com | Both |

@@ -1348,6 +1348,9 @@ a.status:hover { text-decoration: underline; }
   .filter-select select { min-width: 0; width: 100%; font-size: 16px; }
 }
 @media (max-width: 380px) { .filter-selects { grid-template-columns: 1fr; } }
+/* Administrator profile: member only sections are hidden */
+.admin-hidden { display: none !important; }
+
 /* Postcode or area search box, styled like the selects next to it */
 .filter-select input {
   height: 44px; width: 220px; padding: 0 14px; border: 1px solid var(--border); border-radius: 12px;

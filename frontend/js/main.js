@@ -1169,10 +1169,25 @@ function setUpAdmin() {
   const admin = document.querySelector("[data-admin]");
   if (!admin) return;
   const tabs = admin.querySelectorAll(".dash-tab");
-  tabs.forEach((tab) => tab.addEventListener("click", () => {
+  const show = (name) => {
+    const tab = Array.from(tabs).find((t) => t.dataset.tab === name);
+    if (!tab) return;
     tabs.forEach((t) => t.setAttribute("aria-selected", String(t === tab)));
-    admin.querySelectorAll(".dash-panel").forEach((p) => { p.hidden = p.dataset.panel !== tab.dataset.tab; });
+    admin.querySelectorAll(".dash-panel").forEach((p) => { p.hidden = p.dataset.panel !== name; });
+  };
+  tabs.forEach((tab) => tab.addEventListener("click", () => {
+    show(tab.dataset.tab);
+    history.replaceState(null, "", `#${tab.dataset.tab}`);
+    if (typeof setUpAdminMenu === "function" && loadProfile().admin) setUpAdminMenu();
   }));
+  // The admin menu links to a section, for example admin.html#members
+  const fromHash = () => show(location.hash.slice(1) || "accounts");
+  window.addEventListener("hashchange", () => {
+    fromHash();
+    const menu = document.getElementById("mobile-menu");
+    if (menu && menu.classList.contains("is-open")) { const c = menu.querySelector(".menu-close"); if (c) c.click(); }
+  });
+  if (location.hash) fromHash();
   const countAccounts = admin.querySelector("[data-count-accounts]");
   const countConcerns = admin.querySelector("[data-count-concerns]");
   const countChanges = admin.querySelector("[data-count-changes]");
@@ -1390,4 +1405,46 @@ function setUpAuthHeader() {
   document.querySelectorAll("[data-auth]").forEach((el) => {
     el.hidden = (el.dataset.auth === "in") !== inNow;
   });
+  if (inNow && p.admin) setUpAdminMenu();
+}
+
+/* Administrators do not ask for or offer help, so they get their own menu
+   that leads to the sections of the admin dashboard. */
+const ADMIN_MENU = [
+  ["Dashboard", "admin.html", "menu-home"],
+  ["Members", "admin.html#members", "menu-heart"],
+  ["Reports", "admin.html#concerns", "menu-info"],
+  ["Reviews", "admin.html#reviews", "menu-hand"],
+  ["Impact", "impact.html", "menu-chart"],
+];
+function setUpAdminMenu() {
+  const page = (location.pathname.split("/").pop() || "index.html");
+  const here = page + (page === "admin.html" ? location.hash : "");
+  const current = (href) => href === here || (href === "admin.html" && here === "admin.html#accounts");
+  const desk = document.querySelector(".main-nav");
+  if (desk) {
+    desk.setAttribute("aria-label", "Admin");
+    desk.innerHTML = ADMIN_MENU.map(([name, href]) =>
+      `<a href="${href}"${current(href) ? ' aria-current="page"' : ""}>${name}</a>`).join("");
+  }
+  const mob = document.querySelector(".mobile-menu__links");
+  if (mob) {
+    mob.innerHTML = ADMIN_MENU.map(([name, href, icon]) => {
+      const on = current(href);
+      return `<a class="mobile-link" href="${href}"${on ? ' aria-current="page"' : ""}><span class="mobile-link__icon"><img src="assets/icons/${icon}.svg" alt="" width="18" height="18"></span><span>${name}</span>` +
+        (on ? "" : '<img class="chevron" src="assets/icons/menu-chevron.svg" alt="" width="20" height="20">') + "</a>";
+    }).join("");
+  }
+  // Account links: the admin dashboard instead of the member pages
+  document.querySelectorAll(".account-chip").forEach((a) => { a.href = "admin.html"; });
+  document.querySelectorAll(".mobile-menu__mine").forEach((n) => { n.hidden = true; });
+  document.querySelectorAll('.mobile-menu__account a[href="dashboard.html"]').forEach((a) => {
+    a.href = "admin.html";
+    a.textContent = "Admin dashboard";
+  });
+  // Clicking a menu link while already on admin.html only changes the #section
+  if (!window.qvAdminMenuHash) {
+    window.qvAdminMenuHash = true;
+    window.addEventListener("hashchange", setUpAdminMenu);
+  }
 }

@@ -1208,7 +1208,11 @@
       return;
     }
     if (page === "admin.html" && roleOf() !== "admin") { location.replace("dashboard.html"); return; }
-    if (roleOf() === "admin" && page === "dashboard.html") { location.replace("admin.html"); return; }
+    // Administrators do not ask for or offer help: member pages lead to the admin dashboard
+    if (roleOf() === "admin" && ["dashboard.html", "my-tasks.html", "my-requests.html", "post-request.html", "onboarding.html"].includes(page)) {
+      location.replace("admin.html");
+      return;
+    }
 
     await loadSkills();
     liveNotifications();

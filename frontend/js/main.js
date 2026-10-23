@@ -294,8 +294,8 @@ function setUpMobileMenu() {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && menu.classList.contains("is-open")) close();
   });
-  // Close the menu if the window grows to desktop size
-  window.matchMedia("(min-width: 961px)").addEventListener("change", (e) => {
+  // Close the menu if the window grows to the full desktop header
+  window.matchMedia("(min-width: 1280px)").addEventListener("change", (e) => {
     if (e.matches && menu.classList.contains("is-open")) close();
   });
 }

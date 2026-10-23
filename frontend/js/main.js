@@ -1435,9 +1435,12 @@ function setUpAdminMenu() {
         (on ? "" : '<img class="chevron" src="assets/icons/menu-chevron.svg" alt="" width="20" height="20">') + "</a>";
     }).join("");
   }
-  // Account links: the admin dashboard instead of the member pages
-  document.querySelectorAll(".account-chip").forEach((a) => { a.href = "admin.html"; });
-  document.querySelectorAll(".mobile-menu__mine").forEach((n) => { n.hidden = true; });
+  // Account links: the name opens the administrator's own profile
+  document.querySelectorAll(".account-chip").forEach((a) => { a.href = "profile.html"; });
+  document.querySelectorAll(".mobile-menu__mine").forEach((n) => {
+    n.setAttribute("aria-label", "My account");
+    n.innerHTML = '<a href="profile.html">My profile</a>';
+  });
   document.querySelectorAll('.mobile-menu__account a[href="dashboard.html"]').forEach((a) => {
     a.href = "admin.html";
     a.textContent = "Admin dashboard";

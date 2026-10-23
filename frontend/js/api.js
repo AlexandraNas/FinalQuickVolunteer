@@ -436,6 +436,11 @@
       sent.hidden = false;
       const labels = { pending: "waiting for the requester", accepted: "accepted", rejected: "declined", completed: "completed" };
       $("[data-offer-status]", sent).textContent = `Your offer is ${labels[myApplication.application_status] || myApplication.application_status}.`;
+    } else if (QV.me && QV.me.account_type === "admin" && form) {
+      if (matchBox) matchBox.hidden = true;
+      form.innerHTML = '<h2>Administrator</h2><a class="btn btn--outline btn--block" href="admin.html#concerns">Reported concerns</a>';
+      const report = $("[data-task-report]");
+      if (report) report.classList.add("admin-hidden");
     } else if (QV.me && task.creator_id === QV.me.user_id && form) {
       form.innerHTML = '<h2>This is your request</h2><p class="body">You can follow the offers from <a class="link-green" href="my-requests.html">My requests</a>.</p>';
     } else if (QV.me && !canVolunteer() && form) {
@@ -900,6 +905,7 @@
     $("[data-profile-name]").textContent = p.name || "";
     $("[data-profile-since]").textContent = p.since || "";
     $("[data-profile-area]").textContent = p.area ? `${p.area}, up to ${p.distance || 3} miles` : "Not set";
+    if (QV.me.account_type === "admin") { adminProfile(form); return; }
     if (typeof window.showVerification === "function") window.showVerification(p.verification);
 
     // Reviews about me (visible ones only)
@@ -914,9 +920,44 @@
     } catch (e) { /* ignore */ }
   }
 
+  // Administrators keep only their name and email: no area, skills, verification or reviews
+  function adminProfile(form) {
+    document.documentElement.classList.add("qv-admin");
+    const intro = $(".page-head .body") || $("h1.h-section + .body");
+    if (intro) intro.textContent = "Your administrator account.";
+    const status = $("[data-verify-status]");
+    if (status) { status.textContent = "Administrator"; status.className = "verified verified--lg"; }
+    const hide = (el) => { if (el) el.classList.add("admin-hidden"); };
+    $$(".summary-list > div").forEach((row) => { if (!row.querySelector("[data-profile-since]")) hide(row); });
+    hide($('.profile-summary a[href="my-tasks.html#history"]'));
+    hide(form.bio && form.bio.closest(".field"));
+    $$(".form-block", form).forEach((block, i) => { if (i > 0) hide(block); });
+    hide($("#verify"));
+    hide($('[aria-labelledby="rev-title"]'));
+    const cancel = $('.form-buttons a[href="dashboard.html"]', form);
+    if (cancel) cancel.href = "admin.html";
+  }
+
   async function submitProfile(form) {
     const success = $(".form-success", form);
     success.classList.remove("is-visible");
+    if (QV.me && QV.me.account_type === "admin") {
+      const first = form.firstname.value.trim();
+      const last = form.lastname.value.trim();
+      if (!first || !last) { formError(form, "Please enter your first and last name."); return; }
+      formError(form, null);
+      const button = form.querySelector("[type=submit]");
+      busy(button, true, "Saving…");
+      try {
+        await api("PATCH", "/api/users/me", { first_name: first, last_name: last });
+        await loadMe();
+        await liveProfilePage();
+        success.textContent = "Your changes have been saved.";
+        success.classList.add("is-visible");
+      } catch (e) { formError(form, e.message); }
+      busy(button, false);
+      return;
+    }
     const postcodeOk = /^[A-Za-z]{1,2}\d[A-Za-z\d]?\s*\d[A-Za-z]{2}$/.test(form.postcode.value.trim());
     const problem = window.checkRequired(form, [[postcodeOk, "Please enter a valid UK postcode, for example E8 1AB."]]);
     if (problem) { formError(form, problem); return; }
@@ -942,7 +983,7 @@
       await saveProfileLive(p, false);
       await loadMe();
       await liveProfilePage();
-      success.textContent = "Your changes have been saved. Our team is told about profile changes to keep everyone safe.";
+      success.textContent = "Your changes have been saved.";
       success.classList.add("is-visible");
     } catch (e) { formError(form, e.message); }
     busy(button, false);

@@ -20,30 +20,11 @@ Do the steps in this order: Aiven first, because Render needs the database detai
 
 Aiven requires an encrypted (SSL) connection. The MySQL connector used by the app does this on its own.
 
-## 2. Load the tables and demo data (from your Mac, once)
+## 2. Tables and demo data: Render does this for you
 
-Open Terminal in the project folder (the folder that contains `backend` and `database`):
+The first time the app starts on Render, `database/setup_online.py` creates the 15 tables, the demo data and the demo logins in the empty Aiven database. On every later start it sees the tables and does nothing, so data is never overwritten.
 
-```
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r backend/requirements.txt
-
-export MYSQL_HOST="the Aiven host"
-export MYSQL_PORT="the Aiven port"
-export MYSQL_USER="avnadmin"
-export MYSQL_PASSWORD="the Aiven password"
-export MYSQL_DATABASE="defaultdb"
-
-python3 database/load_schema.py
-python3 database/seeds/seed_demo.py
-export DEMO_PASSWORD="choose at least 12 characters"
-python3 database/seeds/demo_logins.py
-```
-
-You should see `Done: 15 tables created.` If you run `load_schema.py` again it stops, so it can never wipe your data.
-
-Never put these passwords in the code or on GitHub.
+(You can also load them from your own computer with `database/load_schema.py` and the seed scripts, but many university and office networks block database ports, so the Render way is easier.)
 
 ## 3. Create the web service on Render
 
@@ -52,7 +33,7 @@ Never put these passwords in the code or on GitHub.
 3. Fill in:
    - **Language:** Python 3
    - **Build command:** `pip install -r backend/requirements.txt`
-   - **Start command:** `gunicorn --chdir backend app:app`
+   - **Start command:** `python database/setup_online.py; gunicorn --chdir backend app:app`
    - **Instance type:** Free
 4. Under **Environment variables**, add:
 
@@ -66,17 +47,19 @@ Never put these passwords in the code or on GitHub.
 | `FLASK_SECRET_KEY` | click **Generate** |
 | `SESSION_COOKIE_SECURE` | `1` |
 | `TRUST_PROXY` | `1` |
+| `DEMO_PASSWORD` | a password for the demo logins (12+ characters) |
 
 5. Click **Create Web Service**. When the log says it is live, open the link at the top (for example `https://quickvolunteer.onrender.com`).
 
 ## 4. Check it works
 
-1. Open the link and log in with a demo account (password = your `DEMO_PASSWORD`):
+1. In the **Logs** tab you should see `Setup: 15 tables created.` and `Ready: admin.demo@example.com` on the first start.
+2. Open the link and log in with a demo account (password = your `DEMO_PASSWORD`):
    - `james.carter.demo@example.com` (volunteer)
    - `emma.wilson.demo@example.com` (help seeker)
    - `admin.demo@example.com` (administrator)
-2. If you see the demo tasks and your name in the header, the database is connected.
-3. If login fails and the site shows sample data only, check the environment variables in Render (a typo in the host or password is the usual cause) and look at the **Logs** tab.
+3. If you see the demo tasks and your name in the header, the database is connected.
+4. If login fails and the site shows sample data only, check the environment variables in Render (a typo in the host or password is the usual cause) and look at the **Logs** tab.
 
 ## Good to know
 

@@ -8,6 +8,11 @@ import mysql.connector
 
 DATABASE_NAME = os.getenv("MYSQL_DATABASE", "quickvolunteer_db")
 
+# All demo dates are worked out from this moment, as if "today" were in 2027,
+# so the demo tasks stay open (their deadlines are in 2027) during the demo.
+# Change it with the DEMO_NOW setting, for example DEMO_NOW="2027-05-01 10:00:00".
+DEMO_NOW = os.getenv("DEMO_NOW", "2027-03-15 10:00:00")
+
 
 # ==========================================
 # REFERENCE DATA: one agreed list used by the database and the website
@@ -313,14 +318,15 @@ def seed_users(connection):
                 first_name, last_name, email, password_hash,
                 postcode, neighbourhood, preferred_language,
                 account_type, about_me, availability_notes,
-                preferred_mode, max_distance_miles, account_status
+                preferred_mode, max_distance_miles, account_status, created_at
             )
-            VALUES (%s, %s, %s, %s, %s, %s, 'en', %s, %s, %s, %s, %s, 'active')
+            VALUES (%s, %s, %s, %s, %s, %s, 'en', %s, %s, %s, %s, %s, 'active',
+                    @demo_now - INTERVAL %s DAY)
             """,
             (first, last, email,
              generate_password_hash(secrets.token_urlsafe(32)),
              postcode, neighbourhood, account_type, about_me,
-             availability, mode, distance),
+             availability, mode, distance, 10 + 5 * inserted),
         )
         user_id = cursor.lastrowid
 
@@ -359,7 +365,7 @@ def seed_verifications(connection):
             INSERT INTO user_verifications
                 (user_id, verification_method, evidence_reference, status,
                  reviewed_by, reviewed_at, admin_notes)
-            VALUES (%s, 'identity_document', NULL, 'approved', %s, NOW(),
+            VALUES (%s, 'identity_document', NULL, 'approved', %s, @demo_now,
                     'ID document checked; file deleted after the decision.')
             """,
             (user_id, admin),
@@ -396,9 +402,9 @@ def seed_tasks(connection):
                 estimated_minutes, deadline_at, status, created_at
             )
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s,
-                    TIMESTAMP(DATE(NOW() + INTERVAL %s DAY), '23:59:00'),
+                    TIMESTAMP(DATE(@demo_now + INTERVAL %s DAY), '23:59:00'),
                     %s,
-                    NOW() - INTERVAL 7 DAY)
+                    @demo_now - INTERVAL 7 DAY)
             """,
             (creator_id, category_id, title, description, neighbourhood,
              postcode, mode, minutes, deadline_days, status),
@@ -467,10 +473,10 @@ def seed_applications(connection):
                 volunteer_completed_at, help_seeker_completed_at
             )
             VALUES (
-                %s, %s, %s, NOW() - INTERVAL 6 DAY,
-                CASE WHEN %s IN ('accepted', 'completed') THEN NOW() - INTERVAL 5 DAY ELSE NULL END,
-                CASE WHEN %s = 'completed' THEN NOW() - INTERVAL 4 DAY ELSE NULL END,
-                CASE WHEN %s = 'completed' THEN NOW() - INTERVAL 4 DAY ELSE NULL END
+                %s, %s, %s, @demo_now - INTERVAL 6 DAY,
+                CASE WHEN %s IN ('accepted', 'completed') THEN @demo_now - INTERVAL 5 DAY ELSE NULL END,
+                CASE WHEN %s = 'completed' THEN @demo_now - INTERVAL 4 DAY ELSE NULL END,
+                CASE WHEN %s = 'completed' THEN @demo_now - INTERVAL 4 DAY ELSE NULL END
             )
             """,
             (task_id, volunteer_id, status, status, status, status),
@@ -503,8 +509,8 @@ def seed_reviews(connection):
         cursor.execute(
             """
             INSERT IGNORE INTO reviews
-                (application_id, reviewer_id, reviewed_user_id, rating, comment)
-            VALUES (%s, %s, %s, %s, %s)
+                (application_id, reviewer_id, reviewed_user_id, rating, comment, created_at)
+            VALUES (%s, %s, %s, %s, %s, @demo_now - INTERVAL 3 DAY)
             """,
             (application_id, reviewer_id, reviewed, rating, comment),
         )
@@ -514,6 +520,10 @@ def seed_reviews(connection):
 def main():
     connection = get_connection()
     try:
+        cursor = connection.cursor()
+        cursor.execute("SET @demo_now = %s", (DEMO_NOW,))
+        cursor.close()
+        print(f"Demo dates as if today were {DEMO_NOW}")
         seed_reference_data(connection)
         seed_users(connection)
         seed_verifications(connection)

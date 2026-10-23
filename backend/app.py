@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 
 from flask import Flask, jsonify, render_template
+from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_wtf.csrf import CSRFProtect, generate_csrf
 
 from db import get_db_connection
@@ -35,9 +36,14 @@ app.config.update(
     SECRET_KEY=os.environ.get("FLASK_SECRET_KEY"),
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
-    SESSION_COOKIE_SECURE=False,  # Local development only
+    # Online (https) set SESSION_COOKIE_SECURE=1; leave it unset on your computer.
+    SESSION_COOKIE_SECURE=os.environ.get("SESSION_COOKIE_SECURE") == "1",
     MAX_CONTENT_LENGTH=6 * 1024 * 1024  # ID document uploads (5 MB file)
 )
+
+# Behind a hosting proxy such as Render, trust its https and client address headers.
+if os.environ.get("TRUST_PROXY") == "1":
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 if not app.config["SECRET_KEY"]:
     raise RuntimeError(

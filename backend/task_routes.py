@@ -1,0 +1,980 @@
+
+from datetime import datetime
+
+import mysql.connector
+from flask import Blueprint, jsonify, request, session
+
+from auth import roles_required
+from db import get_db_connection
+from helpers import (
+    audit, clean_postcode, member_summary, notify, short_name
+)
+
+
+task_bp = Blueprint("task_management", __name__)
+
+
+# ==========================================
+# PERMISSIONS
+# ==========================================
+
+@task_bp.route("/api/tasks/permissions", methods=["GET"])
+@roles_required("help_seeker")
+def task_permissions():
+    return jsonify({
+        "message": "You have permission to create tasks",
+        "user_id": session["user_id"]
+    }), 200
+
+
+@task_bp.route("/api/volunteer/permissions", methods=["GET"])
+@roles_required("volunteer")
+def volunteer_permissions():
+    return jsonify({
+        "message": "You have permission to apply for tasks",
+        "user_id": session["user_id"]
+    }), 200
+
+
+
+# ==========================================
+# MY TASKS - HELP SEEKER DASHBOARD
+# ==========================================
+
+@task_bp.route("/api/my-tasks", methods=["GET"])
+@roles_required("help_seeker")
+def my_tasks():
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        cursor.execute("""
+            SELECT
+                t.task_id,
+                t.title,
+                t.description,
+                t.location_text,
+                t.postcode,
+                t.delivery_mode,
+                t.estimated_minutes,
+                t.deadline_at,
+                t.status,
+                t.created_at,
+                c.category_name
+            FROM tasks AS t
+            JOIN task_categories AS c
+                ON t.category_id = c.category_id
+            WHERE t.creator_id = %s
+            ORDER BY t.created_at DESC, t.task_id DESC
+        """, (session["user_id"],))
+
+        tasks = cursor.fetchall()
+
+        for task in tasks:
+            if task["deadline_at"] is not None:
+                task["deadline_at"] = (
+                    task["deadline_at"].isoformat()
+                )
+
+            if task["created_at"] is not None:
+                task["created_at"] = (
+                    task["created_at"].isoformat()
+                )
+
+        return jsonify({
+            "tasks": tasks
+        }), 200
+
+    finally:
+        cursor.close()
+        connection.close()
+
+
+
+# ==========================================
+# MY APPLICATIONS - VOLUNTEER DASHBOARD
+# ==========================================
+
+@task_bp.route("/api/my-applications", methods=["GET"])
+@roles_required("volunteer")
+def my_applications():
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        cursor.execute("""
+            SELECT
+                a.application_id,
+                a.task_id,
+                a.status AS application_status,
+                a.applied_at,
+                a.accepted_at,
+                a.volunteer_completed_at,
+                a.help_seeker_completed_at,
+                t.title,
+                t.description,
+                t.delivery_mode,
+                t.location_text,
+                t.postcode,
+                t.estimated_minutes,
+                t.deadline_at,
+                t.status AS task_status,
+                t.creator_id,
+                u.first_name AS creator_first_name,
+                LEFT(u.last_name, 1) AS creator_last_initial,
+                c.category_name
+            FROM task_applications AS a
+            JOIN tasks AS t
+                ON a.task_id = t.task_id
+            JOIN users AS u
+                ON u.user_id = t.creator_id
+            JOIN task_categories AS c
+                ON t.category_id = c.category_id
+            WHERE a.volunteer_id = %s
+            ORDER BY a.applied_at DESC, a.application_id DESC
+        """, (session["user_id"],))
+
+        applications = cursor.fetchall()
+
+        date_fields = (
+            "applied_at",
+            "accepted_at",
+            "volunteer_completed_at",
+            "help_seeker_completed_at",
+            "deadline_at"
+        )
+
+        for application in applications:
+            for field in date_fields:
+                value = application[field]
+                if value is not None:
+                    application[field] = value.isoformat()
+
+        return jsonify({
+            "applications": applications
+        }), 200
+
+    finally:
+        cursor.close()
+        connection.close()
+
+
+# ==========================================
+# CREATE A TASK
+# ==========================================
+
+@task_bp.route("/api/tasks", methods=["POST"])
+@roles_required("help_seeker")
+def create_task():
+    data = request.get_json(silent=True)
+
+    if not isinstance(data, dict):
+        return jsonify({"error": "JSON body required"}), 400
+
+    title = data.get("title")
+    description = data.get("description")
+    category_id = data.get("category_id")
+    delivery_mode = data.get("delivery_mode")
+    estimated_minutes = data.get("estimated_minutes")
+    deadline_at = data.get("deadline_at")
+    location_text = data.get("location_text")
+    postcode = data.get("postcode")
+
+    if not isinstance(title, str) or not title.strip():
+        return jsonify({"error": "Title is required"}), 400
+
+    if len(title.strip()) > 160:
+        return jsonify({"error": "Title is too long"}), 400
+
+    if not isinstance(description, str) or not description.strip():
+        return jsonify({"error": "Description is required"}), 400
+
+    if delivery_mode not in ("remote", "in_person"):
+        return jsonify({"error": "Invalid delivery mode"}), 400
+
+    # In-person tasks need a postcode and a neighbourhood (location_text).
+    # Remote tasks have no postcode or location.
+    if delivery_mode == "in_person":
+        if not isinstance(location_text, str) or not location_text.strip():
+            return jsonify({
+                "error": "Neighbourhood is required for in-person tasks"
+            }), 400
+
+        postcode = clean_postcode(postcode)
+
+        if postcode is None:
+            return jsonify({
+                "error": "A valid UK postcode is required for in-person tasks"
+            }), 400
+    else:
+        location_text = None
+        postcode = None
+
+    if isinstance(location_text, str) and len(location_text.strip()) > 160:
+        return jsonify({"error": "Location is too long"}), 400
+
+    if type(estimated_minutes) is not int or not 15 <= estimated_minutes <= 60:
+        return jsonify({
+            "error": "Duration must be between 15 and 60 minutes"
+        }), 400
+
+    if type(category_id) is not int or category_id <= 0:
+        return jsonify({"error": "Valid category ID required"}), 400
+
+    # The help seeker must say when the task should be done by.
+    if deadline_at is None or deadline_at == "":
+        return jsonify({"error": "Deadline is required"}), 400
+
+    try:
+        deadline = datetime.fromisoformat(deadline_at)
+
+        if deadline.tzinfo is not None:
+            raise ValueError("Timezone not supported")
+
+    except (ValueError, TypeError):
+        return jsonify({"error": "Invalid deadline format"}), 400
+
+    if deadline <= datetime.now():
+        return jsonify({
+            "error": "Deadline must be in the future"
+        }), 400
+
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        cursor.execute("""
+            SELECT category_id
+            FROM task_categories
+            WHERE category_id = %s
+        """, (category_id,))
+
+        if cursor.fetchone() is None:
+            return jsonify({"error": "Category not found"}), 400
+
+        cursor.execute("""
+            INSERT INTO tasks (
+                creator_id,
+                category_id,
+                title,
+                description,
+                location_text,
+                postcode,
+                delivery_mode,
+                estimated_minutes,
+                deadline_at,
+                status
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'open')
+        """, (
+            session["user_id"],
+            category_id,
+            title.strip(),
+            description.strip(),
+            location_text.strip() if isinstance(location_text, str) else None,
+            postcode,
+            delivery_mode,
+            estimated_minutes,
+            deadline,
+        ))
+
+        task_id = cursor.lastrowid
+        connection.commit()
+
+        return jsonify({
+            "message": "Task created successfully",
+            "task_id": task_id
+        }), 201
+
+    except mysql.connector.Error:
+        connection.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        connection.close()
+
+
+# ==========================================
+# APPLY FOR A TASK
+# ==========================================
+
+@task_bp.route("/api/tasks/<int:task_id>/apply", methods=["POST"])
+@roles_required("volunteer")
+def apply_for_task(task_id):
+    volunteer_id = session["user_id"]
+
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        connection.start_transaction()
+
+        cursor.execute("""
+            SELECT task_id, creator_id, title, status, deadline_at
+            FROM tasks
+            WHERE task_id = %s
+            FOR UPDATE
+        """, (task_id,))
+
+        task = cursor.fetchone()
+
+        if task is None:
+            return jsonify({"error": "Task not found"}), 404
+
+        if task["status"] != "open":
+            return jsonify({"error": "Task is not open"}), 409
+
+        if task["deadline_at"] is not None:
+            if task["deadline_at"] <= datetime.now():
+                return jsonify({"error": "Task deadline has passed"}), 409
+
+        if task["creator_id"] == volunteer_id:
+            return jsonify({
+                "error": "Cannot apply for your own task"
+            }), 403
+
+        cursor.execute("""
+            SELECT application_id
+            FROM task_applications
+            WHERE task_id = %s AND volunteer_id = %s
+        """, (task_id, volunteer_id))
+
+        if cursor.fetchone() is not None:
+            return jsonify({
+                "error": "Already applied for this task"
+            }), 409
+
+        cursor.execute("""
+            INSERT INTO task_applications (
+                task_id, volunteer_id, status
+            )
+            VALUES (%s, %s, 'pending')
+        """, (task_id, volunteer_id))
+
+        application_id = cursor.lastrowid
+
+        # Let the help seeker know someone offered to help.
+        cursor.execute(
+            "SELECT first_name, last_name FROM users WHERE user_id = %s",
+            (volunteer_id,)
+        )
+        volunteer = cursor.fetchone()
+        notify(
+            cursor,
+            task["creator_id"],
+            "New offer to help",
+            f"{short_name(volunteer['first_name'], volunteer['last_name'])} "
+            f"offered to help with \"{task['title']}\".",
+            application_id
+        )
+
+        connection.commit()
+
+        return jsonify({
+            "message": "Application submitted successfully",
+            "application_id": application_id,
+            "task_id": task_id,
+            "status": "pending"
+        }), 201
+
+    except mysql.connector.IntegrityError:
+        connection.rollback()
+        return jsonify({
+            "error": "Already applied or invalid application"
+        }), 409
+
+    except mysql.connector.Error:
+        connection.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        connection.close()
+
+
+# ==========================================
+# VIEW APPLICATIONS FOR A TASK
+# ==========================================
+
+@task_bp.route(
+    "/api/tasks/<int:task_id>/applications",
+    methods=["GET"]
+)
+@roles_required("help_seeker")
+def list_task_applications(task_id):
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        cursor.execute("""
+            SELECT creator_id
+            FROM tasks
+            WHERE task_id = %s
+        """, (task_id,))
+
+        task = cursor.fetchone()
+
+        if task is None:
+            return jsonify({
+                "error": "Task not found"
+            }), 404
+
+        if task["creator_id"] != session["user_id"]:
+            return jsonify({
+                "error": "Permission denied"
+            }), 403
+
+        cursor.execute("""
+            SELECT
+                a.application_id,
+                a.task_id,
+                a.volunteer_id,
+                u.first_name,
+                LEFT(u.last_name, 1) AS last_initial,
+                a.status,
+                a.applied_at,
+                a.volunteer_completed_at,
+                a.help_seeker_completed_at
+            FROM task_applications AS a
+            JOIN users AS u
+                ON a.volunteer_id = u.user_id
+            WHERE a.task_id = %s
+            ORDER BY a.applied_at DESC, a.application_id DESC
+        """, (task_id,))
+
+        applications = cursor.fetchall()
+
+        for application in applications:
+            for field in ("applied_at", "volunteer_completed_at",
+                          "help_seeker_completed_at"):
+                if application[field] is not None:
+                    application[field] = application[field].isoformat()
+
+            # What the help seeker can see before accepting.
+            application["volunteer"] = member_summary(
+                cursor, application["volunteer_id"]
+            )
+
+        return jsonify({
+            "task_id": task_id,
+            "applications": applications
+        }), 200
+
+    finally:
+        cursor.close()
+        connection.close()
+
+
+
+# ==========================================
+# ACCEPT OR REJECT AN APPLICATION
+# ==========================================
+
+@task_bp.route(
+    "/api/applications/<int:application_id>/decision",
+    methods=["PATCH"]
+)
+@roles_required("help_seeker")
+def decide_application(application_id):
+    data = request.get_json(silent=True)
+
+    if not isinstance(data, dict):
+        return jsonify({"error": "JSON body required"}), 400
+
+    decision = data.get("decision")
+
+    if decision not in ("accepted", "rejected"):
+        return jsonify({
+            "error": "Decision must be accepted or rejected"
+        }), 400
+
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        connection.start_transaction()
+
+        # Find the parent task first, then lock it.
+        cursor.execute("""
+            SELECT task_id
+            FROM task_applications
+            WHERE application_id = %s
+        """, (application_id,))
+
+        application_ref = cursor.fetchone()
+
+        if application_ref is None:
+            return jsonify({"error": "Application not found"}), 404
+
+        task_id = application_ref["task_id"]
+
+        cursor.execute("""
+            SELECT task_id, creator_id, title, status
+            FROM tasks
+            WHERE task_id = %s
+            FOR UPDATE
+        """, (task_id,))
+
+        task = cursor.fetchone()
+
+        if task is None:
+            return jsonify({"error": "Task not found"}), 404
+
+        if task["creator_id"] != session["user_id"]:
+            return jsonify({"error": "Permission denied"}), 403
+
+        cursor.execute("""
+            SELECT application_id, volunteer_id, status
+            FROM task_applications
+            WHERE application_id = %s AND task_id = %s
+            FOR UPDATE
+        """, (application_id, task_id))
+
+        application = cursor.fetchone()
+
+        if application is None:
+            return jsonify({"error": "Application not found"}), 404
+
+        if application["status"] != "pending":
+            return jsonify({
+                "error": "Application has already been reviewed"
+            }), 409
+
+        if decision == "accepted" and task["status"] != "open":
+            return jsonify({
+                "error": "Task is no longer open"
+            }), 409
+
+        if decision == "rejected" and task["status"] not in ("open", "filled"):
+            return jsonify({
+                "error": "Task is no longer accepting decisions"
+            }), 409
+
+        if decision == "accepted":
+            cursor.execute("""
+                UPDATE task_applications
+                SET status = 'accepted',
+                    accepted_at = CURRENT_TIMESTAMP
+                WHERE application_id = %s
+            """, (application_id,))
+
+            # One accepted volunteer per task in V1.
+            cursor.execute("""
+                UPDATE tasks
+                SET status = 'filled'
+                WHERE task_id = %s
+            """, (task_id,))
+
+            # Reject remaining pending applications.
+            cursor.execute("""
+                UPDATE task_applications
+                SET status = 'rejected'
+                WHERE task_id = %s
+                  AND application_id <> %s
+                  AND status = 'pending'
+            """, (task_id, application_id))
+
+        else:
+            cursor.execute("""
+                UPDATE task_applications
+                SET status = 'rejected'
+                WHERE application_id = %s
+            """, (application_id,))
+
+        # Notify the volunteer whose application was reviewed.
+        cursor.execute("""
+            INSERT INTO notifications
+                (user_id, task_application_id, title, content)
+            VALUES (%s, %s, %s, %s)
+        """, (
+            application["volunteer_id"],
+            application_id,
+            "Offer accepted" if decision == "accepted" else "Offer declined",
+            (
+                f"Your offer to help with \"{task['title']}\" was accepted."
+                if decision == "accepted"
+                else f"Your offer to help with \"{task['title']}\" was declined."
+            )
+        ))
+
+        if decision == "accepted":
+            # Notify applicants automatically rejected when the task was filled.
+            cursor.execute("""
+                INSERT INTO notifications
+                    (user_id, task_application_id, title, content)
+                SELECT
+                    volunteer_id,
+                    application_id,
+                    'Offer declined',
+                    CONCAT('Your offer to help with "', %s,
+                           '" was declined because another volunteer was chosen.')
+                FROM task_applications
+                WHERE task_id = %s
+                  AND application_id <> %s
+                  AND status = 'rejected'
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM notifications n
+                      WHERE n.task_application_id =
+                            task_applications.application_id
+                        AND n.title = 'Offer declined'
+                  )
+            """, (task["title"], task_id, application_id))
+
+        # Record the application decision in the audit log.
+        cursor.execute("""
+            INSERT INTO audit_logs
+                (actor_id, action, entity_type, entity_id)
+            VALUES (%s, %s, %s, %s)
+        """, (
+            session["user_id"],
+            "application_" + decision,
+            "task_application",
+            application_id
+        ))
+
+        connection.commit()
+
+        return jsonify({
+            "message": "Application reviewed successfully",
+            "application_id": application_id,
+            "status": decision
+        }), 200
+
+    except mysql.connector.Error:
+        connection.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        connection.close()
+
+
+# ==========================================
+# DUAL TASK COMPLETION
+# ==========================================
+
+@task_bp.route("/api/tasks/<int:task_id>/complete", methods=["PATCH"])
+@roles_required("help_seeker", "volunteer")
+def complete_task(task_id):
+    user_id = session["user_id"]
+
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    try:
+        connection.start_transaction()
+
+        cursor.execute("""
+            SELECT task_id, creator_id, title, status
+            FROM tasks
+            WHERE task_id = %s
+            FOR UPDATE
+        """, (task_id,))
+
+        task = cursor.fetchone()
+
+        if task is None:
+            return jsonify({"error": "Task not found"}), 404
+
+        if task["status"] == "completed":
+            return jsonify({
+                "error": "Task already completed"
+            }), 409
+
+        if task["status"] != "filled":
+            return jsonify({
+                "error": "Task must be filled before completion"
+            }), 409
+
+        cursor.execute("""
+            SELECT application_id, volunteer_id,
+                   volunteer_completed_at,
+                   help_seeker_completed_at
+            FROM task_applications
+            WHERE task_id = %s
+              AND status = 'accepted'
+            FOR UPDATE
+        """, (task_id,))
+
+        application = cursor.fetchone()
+
+        if application is None:
+            return jsonify({
+                "error": "No accepted volunteer found"
+            }), 409
+
+        if user_id == task["creator_id"]:
+            field = "help_seeker_completed_at"
+        elif user_id == application["volunteer_id"]:
+            field = "volunteer_completed_at"
+        else:
+            return jsonify({"error": "Permission denied"}), 403
+
+        if application[field] is not None:
+            return jsonify({
+                "error": "You already confirmed completion"
+            }), 409
+
+        # The column name comes from a fixed internal choice,
+        # never directly from user input.
+        cursor.execute(f"""
+            UPDATE task_applications
+            SET {field} = CURRENT_TIMESTAMP
+            WHERE application_id = %s
+        """, (application["application_id"],))
+
+        cursor.execute("""
+            SELECT volunteer_completed_at,
+                   help_seeker_completed_at
+            FROM task_applications
+            WHERE application_id = %s
+        """, (application["application_id"],))
+
+        confirmations = cursor.fetchone()
+
+        both_confirmed = (
+            confirmations["volunteer_completed_at"] is not None
+            and confirmations["help_seeker_completed_at"] is not None
+        )
+
+        if both_confirmed:
+            cursor.execute("""
+                UPDATE task_applications
+                SET status = 'completed'
+                WHERE application_id = %s
+            """, (application["application_id"],))
+
+            cursor.execute("""
+                UPDATE tasks
+                SET status = 'completed'
+                WHERE task_id = %s
+            """, (task_id,))
+
+            for person in (task["creator_id"], application["volunteer_id"]):
+                notify(
+                    cursor, person, "Task completed",
+                    f"You both confirmed \"{task['title']}\". "
+                    "It now counts as a completed task.",
+                    application["application_id"]
+                )
+        else:
+            other = (
+                application["volunteer_id"]
+                if user_id == task["creator_id"]
+                else task["creator_id"]
+            )
+            notify(
+                cursor, other, "Please confirm the task",
+                f"The other person confirmed \"{task['title']}\" is done. "
+                "Please confirm it too.",
+                application["application_id"]
+            )
+
+        connection.commit()
+
+        return jsonify({
+            "message": (
+                "Task completed successfully"
+                if both_confirmed
+                else "Completion confirmed; waiting for the other person"
+            ),
+            "task_id": task_id,
+            "status": "completed" if both_confirmed else "filled",
+            "volunteer_confirmed": (
+                confirmations["volunteer_completed_at"] is not None
+            ),
+            "help_seeker_confirmed": (
+                confirmations["help_seeker_completed_at"] is not None
+            )
+        }), 200
+
+    except mysql.connector.Error:
+        connection.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        connection.close()
+
+    
+
+
+# ==========================================
+# CANCEL TASK - HELP SEEKER
+# ==========================================
+
+@task_bp.route("/api/tasks/<int:task_id>/cancel", methods=["PATCH"])
+@roles_required("help_seeker")
+def cancel_task(task_id):
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        connection.start_transaction()
+
+        cursor.execute("""
+            SELECT task_id, creator_id, title, status
+            FROM tasks
+            WHERE task_id = %s
+            FOR UPDATE
+        """, (task_id,))
+
+        task = cursor.fetchone()
+
+        if task is None:
+            connection.rollback()
+            return jsonify({"error": "Task not found"}), 404
+
+        if task["creator_id"] != session["user_id"]:
+            connection.rollback()
+            return jsonify({"error": "Permission denied"}), 403
+
+        if task["status"] not in ("open", "filled"):
+            connection.rollback()
+            return jsonify({
+                "error": "Task cannot be cancelled"
+            }), 409
+
+        # Tell every volunteer who offered (pending or accepted).
+        cursor.execute("""
+            SELECT application_id, volunteer_id
+            FROM task_applications
+            WHERE task_id = %s
+              AND status IN ('pending', 'accepted')
+        """, (task_id,))
+
+        for offer in cursor.fetchall():
+            notify(
+                cursor, offer["volunteer_id"], "Request closed",
+                f"The help seeker closed \"{task['title']}\", "
+                "so your offer is no longer needed.",
+                offer["application_id"]
+            )
+
+        cursor.execute("""
+            UPDATE tasks
+            SET status = 'closed'
+            WHERE task_id = %s
+        """, (task_id,))
+
+        cursor.execute("""
+            UPDATE task_applications
+            SET status = 'rejected'
+            WHERE task_id = %s
+              AND status = 'pending'
+        """, (task_id,))
+
+        connection.commit()
+
+        return jsonify({
+            "message": "Task cancelled successfully",
+            "task_id": task_id,
+            "status": "closed"
+               }), 200
+
+    except mysql.connector.Error:
+        connection.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        connection.close()
+
+
+# ==========================================
+# WITHDRAW AN OFFER - VOLUNTEER
+# ==========================================
+# A withdrawn offer is deleted, so it is not recorded anywhere.
+# If the volunteer had already been accepted, the task opens again.
+
+@task_bp.route("/api/applications/<int:application_id>", methods=["DELETE"])
+@roles_required("volunteer")
+def withdraw_application(application_id):
+    volunteer_id = session["user_id"]
+
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        connection.start_transaction()
+
+        cursor.execute("""
+            SELECT a.application_id, a.task_id, a.volunteer_id, a.status,
+                   a.volunteer_completed_at,
+                   t.creator_id, t.title, t.status AS task_status
+            FROM task_applications AS a
+            JOIN tasks AS t ON t.task_id = a.task_id
+            WHERE a.application_id = %s
+            FOR UPDATE
+        """, (application_id,))
+
+        application = cursor.fetchone()
+
+        if application is None:
+            connection.rollback()
+            return jsonify({"error": "Offer not found"}), 404
+
+        if application["volunteer_id"] != volunteer_id:
+            connection.rollback()
+            return jsonify({"error": "Permission denied"}), 403
+
+        if application["status"] not in ("pending", "accepted"):
+            connection.rollback()
+            return jsonify({
+                "error": "This offer can no longer be withdrawn"
+            }), 409
+
+        if (
+            application["status"] == "accepted"
+            and application["volunteer_completed_at"] is not None
+        ):
+            connection.rollback()
+            return jsonify({
+                "error": "You already confirmed this task"
+            }), 409
+
+        cursor.execute(
+            "DELETE FROM task_applications WHERE application_id = %s",
+            (application_id,)
+        )
+
+        if application["status"] == "accepted" and application["task_status"] == "filled":
+            cursor.execute("""
+                UPDATE tasks SET status = 'open'
+                WHERE task_id = %s
+            """, (application["task_id"],))
+
+        cursor.execute(
+            "SELECT first_name, last_name FROM users WHERE user_id = %s",
+            (volunteer_id,)
+        )
+        volunteer = cursor.fetchone()
+
+        notify(
+            cursor,
+            application["creator_id"],
+            "Offer withdrawn",
+            f"{short_name(volunteer['first_name'], volunteer['last_name'])} "
+            f"withdrew their offer to help with \"{application['title']}\"."
+            + (" Your request is open again."
+               if application["status"] == "accepted" else "")
+        )
+
+        audit(cursor, volunteer_id, "application_withdrawn",
+              "task", application["task_id"])
+
+        connection.commit()
+
+        return jsonify({
+            "message": "Offer withdrawn",
+            "task_id": application["task_id"]
+        }), 200
+
+    except mysql.connector.Error:
+        connection.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        connection.close()

@@ -2,8 +2,10 @@
    Shows a circle for the area of the postcode, never the exact address:
    - Onboarding and My profile: the circle is how far the member is happy to travel.
    - Post a request: the circle is the approximate area of the task.
-   The neighbourhood is filled in from the postcode (postcodes.io) when it is empty.
-   Without internet the page works as before and the map stays hidden. */
+   Members type only a postcode. The name of the area (for example "Hackney Central")
+   is worked out from it with postcodes.io and saved in the hidden area field; other
+   members see that name, never the postcode. Without internet the first part of the
+   postcode (for example "E8") is saved instead, and the map stays hidden. */
 (function () {
   "use strict";
   const MILE = 1609.34;
@@ -26,7 +28,8 @@
   function setUp(ids) {
     const postcode = document.getElementById(ids.postcode);
     const area = document.getElementById(ids.area);
-    if (!postcode || !area || !window.L) return;
+    if (!postcode || !area) return;
+    const canMap = !!window.L;
 
     // Map box, placed under the row that holds the postcode and neighbourhood
     const row = postcode.closest(".field-row") || postcode.closest(".field");
@@ -41,8 +44,6 @@
     let map = null;
     let circle = null;
     let lastDistrict = "";
-    let autoFilled = "";
-    let startArea = null;      // neighbourhood already on the page (saved profile)
     let typedPostcode = false; // the member changed the postcode themselves
 
     function radius() {
@@ -62,6 +63,7 @@
     }
 
     function draw(lat, lng, district) {
+      if (!canMap) { box.hidden = true; return; }
       box.hidden = false;
       if (!map) {
         map = L.map(box.querySelector(".area-map__map"), {
@@ -82,25 +84,22 @@
       caption(district);
     }
 
-    async function fillNeighbourhood(value) {
-      // Fill in only when the neighbourhood is empty, was filled in by us, or still
-      // belongs to the old postcode; never overwrite what the member typed.
-      const current = area.value.trim();
-      const stale = typedPostcode && current === startArea;
-      if (current && current !== autoFilled && !stale) return;
+    // Saved profiles keep their area name until the member changes the postcode.
+    async function fillArea(value, district) {
+      if (!typedPostcode && area.value.trim()) return;
+      area.value = district;               // straight away, works offline
+      caption(district);
       try {
-        const r = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(clean(value))}`);
+        const asked = clean(value);
+        const r = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(asked)}`);
         if (!r.ok) return;
         const result = (await r.json()).result || {};
         const name = result.admin_ward || result.admin_district || "";
-        const now = area.value.trim();
-        if (name && (!now || now === autoFilled || (typedPostcode && now === startArea))) {
+        if (name && clean(postcode.value) === asked) {
           area.value = name;
-          autoFilled = name;
-          area.dispatchEvent(new Event("input", { bubbles: true }));
-          caption(lastDistrict);
+          caption(district);
         }
-      } catch (e) { /* offline: the member types the neighbourhood */ }
+      } catch (e) { /* offline: keep the postcode area, for example "E8" */ }
     }
 
     function update() {
@@ -108,16 +107,14 @@
       if (!isFullPostcode(value)) { box.hidden = true; return; }
       const district = districtOf(value);
       const centre = (window.QV_DISTRICTS || {})[district];
-      if (!centre) { box.hidden = true; return; }
+      if (!centre) { box.hidden = true; fillArea(value, district); return; }
       lastDistrict = district;
-      if (startArea === null) startArea = area.value.trim();
       draw(centre[0], centre[1], district);
-      fillNeighbourhood(value);
+      fillArea(value, district);
     }
 
     postcode.addEventListener("input", () => { typedPostcode = true; update(); });
     postcode.addEventListener("change", update);
-    area.addEventListener("input", () => { if (!box.hidden) caption(lastDistrict); });
     if (ids.distance) {
       document.querySelectorAll(`[name="${ids.distance}"]`).forEach((r) => r.addEventListener("change", update));
     }

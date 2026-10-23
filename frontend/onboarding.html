@@ -155,17 +155,14 @@
       <section class="onboard-step is-active" data-step="1" aria-labelledby="step1-title">
         <div class="form-intro">
           <h1 class="h-section" id="step1-title">Where are you based?</h1>
-          <p class="body">We use your area to show tasks and neighbours near you. Your full address is never shown.</p>
+          <p class="body">We use your postcode to show tasks near you. Other members only see the name of your area, never your postcode or address.</p>
         </div>
         <div class="form-fields">
           <div class="field">
             <label for="postcode">Postcode</label>
             <div class="field__control"><input id="postcode" name="postcode" type="text" autocomplete="postal-code" placeholder="E8 1AB" required></div>
           </div>
-          <div class="field">
-            <label for="area">Neighbourhood</label>
-            <div class="field__control"><input id="area" name="area" type="text" placeholder="Hackney" required></div>
-          </div>
+          <input id="area" name="area" type="hidden">
           <fieldset class="choice-group">
             <legend>How far are you happy to travel?</legend>
             <div class="chips">

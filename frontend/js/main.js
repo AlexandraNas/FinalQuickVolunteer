@@ -109,7 +109,6 @@ function setUpOnboarding() {
       profile.area = form.area.value.trim();
     }
     markInvalid(form.postcode, false);
-    markInvalid(form.area, false);
     saveProfile(profile);
     window.location.href = "dashboard.html";
   });
@@ -138,10 +137,10 @@ function setUpOnboarding() {
     if (step === 1) {
       const ok = isPostcode(form.postcode.value);
       markInvalid(form.postcode, !ok);
-      const areaOk = form.area.value.trim().length > 1;
-      markInvalid(form.area, !areaOk);
       if (!ok) return "Please enter a valid UK postcode, for example E8 1AB.";
-      if (!areaOk) return "Please enter your neighbourhood.";
+      // The area name comes from the postcode (postcode-map.js); without internet
+      // the first part of the postcode is used, for example "E8".
+      if (!form.area.value.trim()) form.area.value = form.postcode.value.trim().toUpperCase().replace(/\s+/g, "").slice(0, -3);
     }
     if (step === 2 && !role()) return "Please choose how you would like to take part.";
     if (step === 3 && !form.querySelector("[name=skills]:checked")) return "Please choose at least one skill.";

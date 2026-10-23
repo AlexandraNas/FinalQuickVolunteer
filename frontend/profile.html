@@ -194,18 +194,12 @@
         </section>
         <section class="form-block" aria-labelledby="p2">
           <h2 id="p2">Area</h2>
-          <div class="field-row">
-            <div class="field">
+          <div class="field">
             <label for="postcode">Postcode</label>
             <div class="field__control"><input id="postcode" name="postcode" type="text" autocomplete="postal-code" placeholder="E8 1AB" required aria-describedby="postcode-hint"></div>
-            <p class="field__hint" id="postcode-hint">Never shown to other members.</p>
+            <p class="field__hint" id="postcode-hint">Never shown to other members. They see only the name of your area.</p>
           </div>
-            <div class="field">
-            <label for="area">Neighbourhood</label>
-            <div class="field__control"><input id="area" name="area" type="text" autocomplete="off" placeholder="Hackney" required></div>
-            
-          </div>
-          </div>
+          <input id="area" name="area" type="hidden">
           <fieldset class="choice-group">
             <legend>How far are you happy to travel?</legend>
             <div class="chips"><label class="choice-chip"><input type="radio" name="distance" value="1"><span>Up to 1 mile</span></label><label class="choice-chip"><input type="radio" name="distance" value="3" checked><span>Up to 3 miles</span></label><label class="choice-chip"><input type="radio" name="distance" value="5"><span>Up to 5 miles</span></label></div>

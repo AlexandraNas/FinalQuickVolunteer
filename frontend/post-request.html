@@ -187,18 +187,12 @@
             <div class="chips"><label class="choice-chip"><input type="radio" name="req-mode" value="in_person"><span>In person</span></label><label class="choice-chip"><input type="radio" name="req-mode" value="remote"><span>Remote (phone or online)</span></label></div>
           </fieldset>
           <div data-in-person-only hidden>
-            <div class="field-row">
-              <div class="field">
+            <div class="field">
             <label for="req-postcode">Postcode</label>
             <div class="field__control"><input id="req-postcode" name="req-postcode" type="text" autocomplete="postal-code" placeholder="E8 1AB" required aria-describedby="req-postcode-hint"></div>
-            <p class="field__hint" id="req-postcode-hint">Never shown. Used to show volunteers how far away the task is.</p>
+            <p class="field__hint" id="req-postcode-hint">Never shown. Volunteers see only the name of the area and how far away the task is.</p>
           </div>
-              <div class="field">
-            <label for="req-area">Neighbourhood</label>
-            <div class="field__control"><input id="req-area" name="req-area" type="text" autocomplete="off" placeholder="Hackney" required aria-describedby="req-area-hint"></div>
-            <p class="field__hint" id="req-area-hint">Volunteers see this until you accept them.</p>
-          </div>
-            </div>
+            <input id="req-area" name="req-area" type="hidden">
           </div>
         </section>
 

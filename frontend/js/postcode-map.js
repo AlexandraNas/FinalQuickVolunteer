@@ -64,6 +64,7 @@
         map = L.map(box.querySelector(".area-map__map"), {
           zoomControl: true, scrollWheelZoom: false, dragging: !L.Browser.mobile, tap: false,
         });
+        map.attributionControl.setPrefix(false); // no "Leaflet" link or flag
         L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
           maxZoom: 18,
           attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',

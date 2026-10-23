@@ -1348,6 +1348,16 @@ a.status:hover { text-decoration: underline; }
   .filter-select select { min-width: 0; width: 100%; font-size: 16px; }
 }
 @media (max-width: 380px) { .filter-selects { grid-template-columns: 1fr; } }
+/* Postcode or area search box, styled like the selects next to it */
+.filter-select input {
+  height: 44px; width: 220px; padding: 0 14px; border: 1px solid var(--border); border-radius: 12px;
+  background: var(--white); font: inherit; font-size: 15px; font-weight: 500; color: var(--text);
+}
+.filter-select input::placeholder { color: var(--text-2); font-weight: 400; }
+.filter-select input:focus-visible { outline: 3px solid var(--green); outline-offset: 2px; }
+@media (max-width: 960px) { .filter-select input { min-width: 0; width: 100%; font-size: 16px; } }
+.task-map .area-map__map { height: 320px; }
+@media (max-width: 600px) { .task-map .area-map__map { height: 240px; } }
 .clear-filters { align-self: flex-end; height: 44px; } .empty-state .link-button { padding: 0; font-size: inherit; }
 
 /* =========================================================

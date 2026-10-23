@@ -24,6 +24,10 @@ Aiven requires an encrypted (SSL) connection. The MySQL connector used by the ap
 
 The first time the app starts on Render, `database/setup_online.py` creates the 15 tables, the demo data and the demo logins in the empty Aiven database. On every later start it sees the tables and does nothing, so data is never overwritten.
 
+All demo dates are set as if today were **15 March 2027**, so the demo tasks stay open during your presentation. To use another date, add `DEMO_NOW` (for example `2027-05-01 10:00:00`) in Render before the first start.
+
+**Starting again with fresh demo data:** add `RESET_DATABASE` = `yes-delete-everything` in Render's Environment and save. Render redeploys, deletes every table and creates the demo data again. **Then remove `RESET_DATABASE` straight away**, or it will wipe the database on every restart. This deletes everything, including accounts and tasks people created.
+
 (You can also load them from your own computer with `database/load_schema.py` and the seed scripts, but many university and office networks block database ports, so the Render way is easier.)
 
 ## 3. Create the web service on Render

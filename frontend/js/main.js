@@ -656,7 +656,8 @@ function setUpNotifications() {
   const boxes = document.querySelectorAll("[data-notif]");
   if (!boxes.length) return;
   const profile = loadProfile();
-  const incomplete = !(profile.role && profile.postcode && Array.isArray(profile.skills) && profile.skills.length);
+  // Administrators do not volunteer or ask for help, so they have no profile to finish
+  const incomplete = !profile.admin && !(profile.role && profile.postcode && Array.isArray(profile.skills) && profile.skills.length);
 
   boxes.forEach((box) => {
     const btn = box.querySelector(".notif__btn");

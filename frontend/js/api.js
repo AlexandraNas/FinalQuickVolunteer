@@ -175,6 +175,7 @@
       name: `${QV.me.first_name} ${QV.me.last_name}`,
       email: QV.me.email,
       role: QV.me.account_type === "admin" ? "both" : QV.me.account_type,
+      admin: QV.me.account_type === "admin",
       postcode: profile.postcode || "",
       area: profile.neighbourhood || "",
       distance: profile.max_distance_miles ? String(profile.max_distance_miles) : "",

@@ -3,10 +3,15 @@
 Render runs this before the app starts (see the start command in DEPLOY_RENDER.md),
 so nobody needs to connect to the database from their own computer.
 
-- The tables already exist -> it does nothing, so data is never overwritten.
+- The tables and tasks already exist -> it does nothing, so data is never overwritten.
+- The tables exist but are empty -> it adds the demo data.
 - The database is empty -> it creates the 15 tables, adds the demo data and,
   if DEMO_PASSWORD is set (12+ characters), the demo logins.
 - Any problem is printed in the Render log and the app still starts.
+
+To start again with fresh demo data (this DELETES everything in the database,
+including accounts and tasks people created), set RESET_DATABASE to
+"yes-delete-everything" in Render, deploy once, then remove the setting.
 """
 import os
 import subprocess
@@ -35,14 +40,29 @@ def main():
     connection = connect()
     cursor = connection.cursor()
     try:
+        if os.getenv("RESET_DATABASE") == "yes-delete-everything":
+            cursor.execute("SHOW TABLES")
+            tables = [row[0] for row in cursor.fetchall()]
+            cursor.execute("SET FOREIGN_KEY_CHECKS = 0")
+            for table in tables:
+                cursor.execute(f"DROP TABLE `{table}`")
+            cursor.execute("SET FOREIGN_KEY_CHECKS = 1")
+            connection.commit()
+            print(f"Setup: RESET_DATABASE is on, {len(tables)} tables deleted. "
+                  "Remove RESET_DATABASE in Render now.")
+
         cursor.execute("SHOW TABLES LIKE 'users'")
         if cursor.fetchone():
-            print("Setup: tables already exist, nothing to do.")
-            return
-        for statement in statements(SCHEMA.read_text(encoding="utf-8")):
-            cursor.execute(statement)
-        connection.commit()
-        print("Setup: 15 tables created.")
+            cursor.execute("SELECT COUNT(*) FROM tasks")
+            if cursor.fetchone()[0] > 0:
+                print("Setup: tables and data already exist, nothing to do.", flush=True)
+                return
+            print("Setup: tables exist but have no tasks yet, adding the demo data.", flush=True)
+        else:
+            for statement in statements(SCHEMA.read_text(encoding="utf-8")):
+                cursor.execute(statement)
+            connection.commit()
+            print("Setup: 15 tables created.", flush=True)
     finally:
         cursor.close()
         connection.close()

@@ -679,7 +679,16 @@
     if (sections.length < 3) return;
     let apps = [];
     try { apps = (await api("GET", "/api/my-applications")).applications || []; } catch (e) {
-      $(".trow-list", sections[0]).innerHTML = `<li class="muted">${esc(e.status === 403 ? "Your account is set up for asking for help only." : e.message)}</li>`;
+      // Accounts that cannot volunteer: remove every demo row and show one clear note
+      const note = e.status === 403 ? "Your account is set up for asking for help only. You can change this in your profile." : e.message;
+      sections.forEach((section, i) => {
+        const pill = $(".count-pill", section);
+        if (pill) pill.textContent = "0";
+        const ul = $(".trow-list", section);
+        if (ul) ul.innerHTML = i === 0 ? `<li class="muted">${esc(note)}</li>` : "";
+      });
+      const history = $("[data-history]");
+      if (history) history.hidden = true;
       return;
     }
     const upcoming = apps.filter((a) => a.application_status === "accepted" && a.task_status === "filled");
@@ -1213,7 +1222,9 @@
   }
 
   QV.ready = new Promise((resolve) => {
-    const go = () => start().then(resolve, resolve);
+    // Always show the page when loading ends, even after an error
+    const done = () => { document.documentElement.classList.add("qv-ready"); resolve(); };
+    const go = () => start().then(done, done);
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", go);
     else go();
   });

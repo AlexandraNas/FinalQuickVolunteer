@@ -4,7 +4,7 @@ QuickVolunteer is a micro volunteering website. Neighbours post small tasks of 1
 
 **Live website:** https://finalquickvolunteer.onrender.com
 
-The free server sleeps when nobody uses it. The first visit can take up to a minute to load; after that it is quick.
+The first visit can take up to a minute to load; after that it is quick.
 
 ---
 

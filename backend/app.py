@@ -109,10 +109,27 @@ def fetch_open_tasks():
 
         tasks = cursor.fetchall()
 
+        # The skills of every task in one query, so the website does not
+        # need one extra request per task.
+        skills_by_task = {task["task_id"]: [] for task in tasks}
+        if skills_by_task:
+            placeholders = ", ".join(["%s"] * len(skills_by_task))
+            cursor.execute(f"""
+                SELECT ts.task_id, s.skill_id, s.skill_name, s.category, ts.importance
+                FROM task_skills AS ts
+                JOIN skills AS s
+                    ON ts.skill_id = s.skill_id
+                WHERE ts.task_id IN ({placeholders})
+                ORDER BY ts.importance = 'helpful', s.skill_name ASC
+            """, tuple(skills_by_task))
+            for row in cursor.fetchall():
+                skills_by_task[row.pop("task_id")].append(row)
+
         # Dates as ISO text so the website can read them.
         # Only the first name and last initial are shared.
         for task in tasks:
             task["creator_verified"] = bool(task["creator_verified"])
+            task["skills"] = skills_by_task.get(task["task_id"], [])
             for field in ("deadline_at", "created_at"):
                 if task[field] is not None:
                     task[field] = task[field].isoformat()

@@ -374,6 +374,15 @@ class Sprint3Tests(unittest.TestCase):
         self.assertEqual(self.client.delete("/api/admin/tasks/999999",
                                             headers=self.csrf_headers()).status_code, 404)
 
+    def test_s20_task_list_includes_skills(self):
+        self.register_user("seeker@test.com", "help_seeker")
+        self.login_user("seeker@test.com")
+        task_id = self.create_task().get_json()["task_id"]
+        skill = self.sql("SELECT skill_id, skill_name FROM skills ORDER BY skill_id LIMIT 1", fetch=True)[0]
+        self.sql("INSERT INTO task_skills (task_id, skill_id) VALUES (%s, %s)", (task_id, skill["skill_id"]))
+        task = next(t for t in self.client.get("/api/tasks").get_json() if t["task_id"] == task_id)
+        self.assertEqual([s["skill_name"] for s in task["skills"]], [skill["skill_name"]])
+
     def test_s18_admin_can_list_reviews(self):
         self.make_admin()
         self.login_user("admin@test.com")

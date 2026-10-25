@@ -1129,6 +1129,7 @@
         <td class="cell-actions"><button class="btn btn--primary btn--small" type="button" data-live-verify-decision="approved">Approve</button><button class="btn btn--outline btn--small" type="button" data-live-verify-decision="rejected">Reject</button></td></tr>`).join("")
         : '<tr><td colspan="6" class="muted">No ID documents waiting to be checked.</td></tr>';
     } catch (e) { tbody.innerHTML = `<tr><td colspan="6" class="muted">${esc(e.message)}</td></tr>`; }
+    if (typeof window.setUpTables === "function") window.setUpTables();
 
     // 2. Members with completed task counts (only administrators see these)
     const members = $("[data-members-body]", admin);
@@ -1142,11 +1143,12 @@
           <td><strong>${esc(m.first_name)} ${esc(m.last_name)}</strong><br><span class="muted small">${esc(m.email)}</span></td>
           <td class="nowrap">${esc(fmtDay(m.created_at))}</td><td>${esc(roles[m.account_type] || m.account_type)}</td>
           <td>${m.verified ? `<span class="verified">${shield()}Verified</span>` : '<span class="muted">No</span>'}</td>
-          <td class="nowrap"><strong>${m.completed_as_volunteer}</strong> helping · <strong>${m.completed_as_requester}</strong> asking</td>
+          <td class="nowrap"><span><strong>${m.completed_as_volunteer}</strong> helping · <strong>${m.completed_as_requester}</strong> asking</span></td>
           <td><span class="status ${suspended ? "status--declined" : "status--accepted"}" data-status-label>${suspended ? "Suspended" : "Active"}</span></td>
           <td class="cell-actions"><button class="btn btn--outline btn--small" type="button" data-live-account="${suspended ? "active" : "suspended"}">${suspended ? "Reactivate" : "Suspend"}</button></td></tr>`;
       }).join("") : '<tr><td colspan="7" class="muted">No members yet.</td></tr>';
       if (typeof window.qvMembersApply === "function") window.qvMembersApply();
+      if (typeof window.setUpTables === "function") window.setUpTables();
     } catch (e) { members.innerHTML = `<tr><td colspan="7" class="muted">${esc(e.message)}</td></tr>`; }
 
     // 3. Reported concerns

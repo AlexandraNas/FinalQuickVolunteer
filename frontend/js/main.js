@@ -1485,13 +1485,14 @@ function setUpAdminMenu() {
   }
   // Account links: the name opens the administrator's own profile
   document.querySelectorAll(".account-chip").forEach((a) => { a.href = "profile.html"; });
-  document.querySelectorAll(".mobile-menu__mine").forEach((n) => {
-    n.setAttribute("aria-label", "My account");
-    n.innerHTML = '<a href="profile.html">My profile</a>';
-  });
-  document.querySelectorAll('.mobile-menu__account a[href="dashboard.html"]').forEach((a) => {
+  // Phone menu: the account card opens the admin dashboard; only My profile is listed
+  document.querySelectorAll("[data-mm-account]").forEach((a) => {
     a.href = "admin.html";
-    a.textContent = "Admin dashboard";
+    const label = a.querySelector("[data-mm-account-label]");
+    if (label) label.textContent = "Admin dashboard";
+  });
+  document.querySelectorAll(".mobile-menu__mine").forEach((n) => {
+    n.querySelectorAll('a:not([href="profile.html"])').forEach((link) => link.remove());
   });
   // Clicking a menu link while already on admin.html only changes the #section
   if (!window.qvAdminMenuHash) {

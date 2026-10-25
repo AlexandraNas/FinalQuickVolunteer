@@ -421,6 +421,76 @@ def admin_update_account_status(user_id):
         connection.close()
 
 
+# ==========================================
+# DELETE A HELP REQUEST - ADMIN
+# ==========================================
+# Admins can remove a request that breaks the community guidelines.
+# The task is closed rather than erased, so reports and reviews about it
+# are kept; it no longer shows anywhere on the site. Admins cannot edit tasks.
+
+@admin_bp.route("/api/admin/tasks/<int:task_id>", methods=["DELETE"])
+@roles_required("admin")
+def admin_delete_task(task_id):
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        connection.start_transaction()
+
+        cursor.execute("""
+            SELECT task_id, creator_id, title, status
+            FROM tasks
+            WHERE task_id = %s
+            FOR UPDATE
+        """, (task_id,))
+        task = cursor.fetchone()
+
+        if task is None:
+            connection.rollback()
+            return jsonify({"error": "Task not found"}), 404
+
+        if task["status"] not in ("open", "filled"):
+            connection.rollback()
+            return jsonify({"error": "Only open or filled tasks can be deleted"}), 409
+
+        cursor.execute("""
+            SELECT application_id, volunteer_id
+            FROM task_applications
+            WHERE task_id = %s
+              AND status IN ('pending', 'accepted')
+        """, (task_id,))
+        for offer in cursor.fetchall():
+            notify(cursor, offer["volunteer_id"], "Request removed",
+                   f"\"{task['title']}\" was removed by our team, "
+                   "so your offer is no longer needed.",
+                   offer["application_id"])
+
+        notify(cursor, task["creator_id"], "Request removed",
+               f"Our team removed your request \"{task['title']}\" because it "
+               "does not follow the community guidelines.")
+
+        cursor.execute("UPDATE tasks SET status = 'closed' WHERE task_id = %s", (task_id,))
+        cursor.execute("""
+            UPDATE task_applications
+            SET status = 'rejected'
+            WHERE task_id = %s
+              AND status IN ('pending', 'accepted')
+        """, (task_id,))
+
+        audit(cursor, session["user_id"], "task_deleted", "task", task_id)
+        connection.commit()
+
+        return jsonify({"message": "Task deleted", "task_id": task_id}), 200
+
+    except mysql.connector.Error:
+        connection.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        connection.close()
+
+
 @admin_bp.route("/api/admin/reviews", methods=["GET"])
 @roles_required("admin")
 def admin_list_reviews():

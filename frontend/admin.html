@@ -138,9 +138,13 @@
     </div>
     <div class="mobile-menu__account">
       <hr>
-      <nav class="mobile-menu__mine" aria-label="My account"><a href="my-tasks.html">My tasks</a><a href="my-requests.html">My requests</a><a href="profile.html">My profile</a></nav>
-      <a class="btn btn--primary btn--block" href="dashboard.html">My dashboard</a>
-      <a class="btn btn--outline btn--block" href="index.html" data-logout>Log out</a>
+      <a class="mm-account" href="dashboard.html" data-mm-account><span class="avatar" data-initial>A</span><span class="mm-account__text"><strong data-first-name>My account</strong><small data-mm-account-label>My dashboard</small></span><img class="chevron" src="assets/icons/menu-chevron.svg" alt="" width="18" height="18"></a>
+      <nav class="mobile-menu__mine" aria-label="My account">
+        <a href="my-tasks.html"><span class="mm-icon"><img src="assets/icons/check.svg" alt="" width="18" height="18"></span><span>My tasks</span><img class="chevron" src="assets/icons/menu-chevron.svg" alt="" width="18" height="18"></a>
+        <a href="my-requests.html"><span class="mm-icon"><img src="assets/icons/menu-hand.svg" alt="" width="18" height="18"></span><span>My requests</span><img class="chevron" src="assets/icons/menu-chevron.svg" alt="" width="18" height="18"></a>
+        <a href="profile.html"><span class="mm-icon"><img src="assets/icons/line-people.svg" alt="" width="18" height="18"></span><span>My profile</span><img class="chevron" src="assets/icons/menu-chevron.svg" alt="" width="18" height="18"></a>
+      </nav>
+      <a class="btn btn--outline btn--block mm-logout" href="index.html" data-logout>Log out</a>
     </div>
   </div>
 
@@ -221,19 +225,19 @@
           <thead><tr><th scope="col">Member</th><th scope="col">Joined</th><th scope="col">Taking part as</th><th scope="col">Verified</th><th scope="col">Completed tasks</th><th scope="col">Account</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
           <tbody data-members-body>
             <tr data-member-row data-member-name="sophie w." data-member-email="sophie.w@example.com" data-joined="9 Oct 2026" data-role="both" data-verified="yes" data-completed="5"><td><strong>Sophie W.</strong><br><span class="muted small">sophie.w@example.com</span></td><td class="nowrap">9 Oct 2026</td><td>Both</td><td><span class="verified"><img src="assets/icons/shield.svg" alt="" width="14" height="14">Verified</span></td>
-              <td class="nowrap"><strong>4</strong> helping · <strong>1</strong> asking</td>
+              <td class="nowrap"><span><strong>4</strong> helping · <strong>1</strong> asking</span></td>
               <td><span class="status status--accepted" data-status-label>Active</span></td>
               <td class="cell-actions"><button class="btn btn--outline btn--small" type="button" data-toggle-account>Suspend</button></td></tr>
             <tr data-member-row data-member-name="adam f." data-member-email="adam.f@example.com" data-joined="10 Oct 2026" data-role="volunteer" data-verified="no" data-completed="1"><td><strong>Adam F.</strong><br><span class="muted small">adam.f@example.com</span></td><td class="nowrap">10 Oct 2026</td><td>Give help</td><td><span class="muted">No</span></td>
-              <td class="nowrap"><strong>1</strong> helping · <strong>0</strong> asking</td>
+              <td class="nowrap"><span><strong>1</strong> helping · <strong>0</strong> asking</span></td>
               <td><span class="status status--accepted" data-status-label>Active</span></td>
               <td class="cell-actions"><button class="btn btn--outline btn--small" type="button" data-toggle-account>Suspend</button></td></tr>
             <tr data-member-row data-member-name="nadia r." data-member-email="nadia.r@example.com" data-joined="11 Oct 2026" data-role="help_seeker" data-verified="yes" data-completed="3"><td><strong>Nadia R.</strong><br><span class="muted small">nadia.r@example.com</span></td><td class="nowrap">11 Oct 2026</td><td>Ask for help</td><td><span class="verified"><img src="assets/icons/shield.svg" alt="" width="14" height="14">Verified</span></td>
-              <td class="nowrap"><strong>0</strong> helping · <strong>3</strong> asking</td>
+              <td class="nowrap"><span><strong>0</strong> helping · <strong>3</strong> asking</span></td>
               <td><span class="status status--accepted" data-status-label>Active</span></td>
               <td class="cell-actions"><button class="btn btn--outline btn--small" type="button" data-toggle-account>Suspend</button></td></tr>
             <tr data-member-row data-member-name="marcus t." data-member-email="marcus.t@example.com" data-joined="14 Oct 2026" data-role="volunteer" data-verified="no" data-completed="0"><td><strong>Marcus T.</strong><br><span class="muted small">marcus.t@example.com</span></td><td class="nowrap">14 Oct 2026</td><td>Give help</td><td><span class="muted">No</span></td>
-              <td class="nowrap"><strong>0</strong> helping · <strong>0</strong> asking</td>
+              <td class="nowrap"><span><strong>0</strong> helping · <strong>0</strong> asking</span></td>
               <td><span class="status status--accepted" data-status-label>Active</span></td>
               <td class="cell-actions"><button class="btn btn--outline btn--small" type="button" data-toggle-account>Suspend</button></td></tr>
           </tbody>

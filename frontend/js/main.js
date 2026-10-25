@@ -244,7 +244,7 @@ function updateSuggestions() {
     empty = document.createElement("p");
     empty.className = "empty-note";
     empty.dataset.suggestionsEmpty = "";
-    empty.textContent = "No tasks match right now. Check back soon or see all tasks.";
+    empty.textContent = "No tasks are available right now. Please check back soon.";
     list.after(empty);
   }
   empty.hidden = shown > 0;
@@ -522,8 +522,23 @@ function setUpTaskFilters() {
     const visible = cards().filter((c) => !c.hidden && c.dataset.mode === "in_person" && districtOf(c.dataset.postcode));
     if (!from && !visible.length) { mapBox.hidden = true; return; }
     mapBox.hidden = false;
+    // Place name and radius above the map
+    const placeLabel = mapBox.querySelector(".area-map__place");
+    const radiusLabel = mapBox.querySelector(".area-map__radius");
+    if (placeLabel) {
+      const typed = placeText();
+      const own = loadProfile();
+      placeLabel.textContent = from
+        ? (districtOf(typed) ? `${typed.toUpperCase()}` : `${own.area ? own.area + ", " : ""}${from}`)
+        : "London";
+      radiusLabel.textContent = from ? `Within ${maxMiles || 3} ${(maxMiles || 3) === 1 ? "mile" : "miles"}` : "";
+    }
     if (!map) {
-      map = L.map(mapBox.querySelector(".area-map__map"), { scrollWheelZoom: false, dragging: !L.Browser.mobile, tap: false });
+      // A still map, like a marketplace location preview; the dots can still be clicked
+      map = L.map(mapBox.querySelector(".area-map__map"), {
+        zoomControl: false, scrollWheelZoom: false, dragging: false, touchZoom: false,
+        doubleClickZoom: false, boxZoom: false, keyboard: false, tap: false, zoomSnap: 0.25,
+      });
       map.attributionControl.setPrefix(false); // no "Leaflet" link or flag
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 18,
@@ -534,7 +549,7 @@ function setUpTaskFilters() {
     layer = L.featureGroup().addTo(map);
     if (from) {
       const c = window.QV_DISTRICTS[from];
-      L.circle(c, { radius: (maxMiles || 3) * 1609.34, color: "#166a3e", weight: 2, fillColor: "#166a3e", fillOpacity: 0.08 }).addTo(layer);
+      L.circle(c, { radius: (maxMiles || 3) * 1609.34, color: "#166a3e", weight: 2, opacity: 0.9, fillColor: "#166a3e", fillOpacity: 0.18 }).addTo(layer);
     }
     const groups = {};
     visible.forEach((card) => { const d = districtOf(card.dataset.postcode); (groups[d] = groups[d] || []).push(card); });
@@ -546,13 +561,13 @@ function setUpTaskFilters() {
         return link ? `<a href="${escapeHtml(link.getAttribute("href"))}">${text}</a>` : text;
       });
       const name = groups[d][0].dataset.area || d;
-      L.circle(window.QV_DISTRICTS[d], { radius: 450, color: "#0d1511", weight: 1, fillColor: "#f2b84b", fillOpacity: 0.7 })
+      L.circleMarker(window.QV_DISTRICTS[d], { radius: 7, color: "#ffffff", weight: 2, fillColor: "#166a3e", fillOpacity: 1 })
         .bindPopup(`<strong>${escapeHtml(name)}</strong><br>${items.join("<br>")}`)
         .addTo(layer);
     });
     const fit = () => {
       map.invalidateSize();
-      if (layer.getLayers().length) map.fitBounds(layer.getBounds(), { padding: [16, 16], maxZoom: 14 });
+      if (layer.getLayers().length) map.fitBounds(layer.getBounds(), { padding: [24, 24], maxZoom: 14 });
     };
     map.setView([51.5, -0.1], 11);
     fit();
@@ -563,7 +578,7 @@ function setUpTaskFilters() {
     new IntersectionObserver((entries) => {
       if (map && layer && entries.some((e) => e.isIntersecting)) {
         map.invalidateSize();
-        if (layer.getLayers().length) map.fitBounds(layer.getBounds(), { padding: [16, 16], maxZoom: 14 });
+        if (layer.getLayers().length) map.fitBounds(layer.getBounds(), { padding: [24, 24], maxZoom: 14 });
       }
     }).observe(mapBox);
   }
@@ -607,6 +622,10 @@ function setUpTaskFilters() {
     const clear = document.getElementById("clear-filters");
     const any = active !== "all" || text || place || [typeBox, lengthBox, distanceBox].some((b) => b && b.value) || (verifiedBox && verifiedBox.checked);
     if (clear) clear.hidden = !any;
+    // No tasks at all, or none that match the filters
+    const none = !cards().length;
+    empty.querySelectorAll("[data-empty-none]").forEach((el) => { el.hidden = !none; });
+    empty.querySelectorAll("[data-empty-filters]").forEach((el) => { el.hidden = none; });
     empty.classList.toggle("is-visible", shown === 0);
     drawMap(maxMiles);
   }
@@ -1165,10 +1184,53 @@ function setUpReport() {
   });
 }
 
+/* Admin: sort and filter the Members table (demo rows and live rows) */
+function setUpMemberFilters() {
+  const box = document.querySelector("[data-member-filters]");
+  const body = document.querySelector("[data-members-body]");
+  if (!box || !body) return;
+  const get = (id) => document.getElementById(id);
+  const none = document.querySelector("[data-members-none]");
+  const joined = (row) => { const t = Date.parse(row.dataset.joined || ""); return Number.isNaN(t) ? 0 : t; };
+  function apply() {
+    const rows = Array.from(body.querySelectorAll("tr[data-member-row], tr[data-live-member]"));
+    const text = get("m-search").value.trim().toLowerCase();
+    const role = get("m-role").value;
+    const verified = get("m-verified").value;
+    const status = get("m-status").value;
+    const sort = get("m-sort").value;
+    rows.sort((a, b) => {
+      if (sort === "oldest") return joined(a) - joined(b);
+      if (sort === "name") return (a.dataset.memberName || "").localeCompare(b.dataset.memberName || "");
+      if (sort === "completed") return Number(b.dataset.completed || 0) - Number(a.dataset.completed || 0);
+      return joined(b) - joined(a);
+    }).forEach((row) => body.appendChild(row));
+    let shown = 0;
+    rows.forEach((row) => {
+      const label = row.querySelector("[data-status-label]");
+      const rowStatus = label && /suspended/i.test(label.textContent) ? "suspended" : "active";
+      const ok = (!text || (row.dataset.memberName || "").includes(text) || (row.dataset.memberEmail || "").includes(text)) &&
+        (!role || row.dataset.role === role) &&
+        (!verified || row.dataset.verified === verified) &&
+        (!status || rowStatus === status);
+      row.hidden = !ok;
+      if (ok) shown++;
+    });
+    if (none) none.hidden = shown > 0 || !rows.length;
+  }
+  ["m-sort", "m-role", "m-verified", "m-status"].forEach((id) => get(id).addEventListener("change", apply));
+  get("m-search").addEventListener("input", apply);
+  // Suspending or reactivating changes the Account column
+  body.addEventListener("click", () => setTimeout(apply, 1500));
+  window.qvMembersApply = apply;
+  apply();
+}
+
 /* Admin: verify accounts and review concerns. In live mode api.js uses the Flask API. */
 function setUpAdmin() {
   const admin = document.querySelector("[data-admin]");
   if (!admin) return;
+  setUpMemberFilters();
   const tabs = admin.querySelectorAll(".dash-tab");
   const show = (name) => {
     const tab = Array.from(tabs).find((t) => t.dataset.tab === name);
@@ -1411,17 +1473,17 @@ function setUpAuthHeader() {
 
 /* Administrators do not ask for or offer help, so they get their own menu
    that leads to the sections of the admin dashboard. */
+// Same labels as the member menu; Home opens the admin dashboard
 const ADMIN_MENU = [
-  ["Dashboard", "admin.html", "menu-home"],
-  ["Members", "admin.html#members", "menu-heart"],
-  ["Reports", "admin.html#concerns", "menu-info"],
-  ["Reviews", "admin.html#reviews", "menu-hand"],
+  ["Home", "admin.html", "menu-home"],
+  ["Ask for Help", "post-request.html", "menu-hand"],
+  ["Offer Support", "find-a-task.html", "menu-heart"],
   ["Impact", "impact.html", "menu-chart"],
+  ["About", "about.html", "menu-info"],
 ];
 function setUpAdminMenu() {
   const page = (location.pathname.split("/").pop() || "index.html");
-  const here = page + (page === "admin.html" ? location.hash : "");
-  const current = (href) => href === here || (href === "admin.html" && here === "admin.html#accounts");
+  const current = (href) => href === page || (href === "find-a-task.html" && page === "task.html");
   const desk = document.querySelector(".main-nav");
   if (desk) {
     desk.setAttribute("aria-label", "Admin");

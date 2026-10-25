@@ -36,10 +36,12 @@
     const box = document.createElement("figure");
     box.className = "area-map";
     box.hidden = true;
-    box.innerHTML = '<div class="area-map__map" role="img" aria-label="Map of the area around your postcode"></div>' +
-      '<figcaption class="area-map__note" aria-live="polite"></figcaption>';
+    box.innerHTML = '<figcaption class="area-map__label" aria-live="polite"><img src="assets/icons/pin-meta.svg" alt="" width="16" height="16">' +
+      '<span class="area-map__place"></span><span class="area-map__radius"></span></figcaption>' +
+      '<div class="area-map__map" role="img" aria-label="Map of the area around your postcode"></div>';
     row.insertAdjacentElement("afterend", box);
-    const note = box.querySelector(".area-map__note");
+    const place = box.querySelector(".area-map__place");
+    const radiusText = box.querySelector(".area-map__radius");
 
     let map = null;
     let circle = null;
@@ -52,17 +54,26 @@
       return (picked ? Number(picked.value) : 1) * MILE;
     }
 
+    // Like a marketplace location: the place name, then the radius
     function caption(district) {
       const name = area.value.trim();
-      note.textContent = name && name !== district ? `${name}, ${district}` : district;
+      place.textContent = name && name !== district ? `${name}, ${district}` : district;
+      if (ids.distance) {
+        const miles = radius() / MILE;
+        radiusText.textContent = `Within ${miles} ${miles === 1 ? "mile" : "miles"}`;
+      } else {
+        radiusText.textContent = "";
+      }
     }
 
     function draw(lat, lng, district) {
       if (!canMap) { box.hidden = true; return; }
       box.hidden = false;
       if (!map) {
+        // A still map, like a marketplace location preview: no zooming or dragging
         map = L.map(box.querySelector(".area-map__map"), {
-          zoomControl: true, scrollWheelZoom: false, dragging: !L.Browser.mobile, tap: false,
+          zoomControl: false, scrollWheelZoom: false, dragging: false, touchZoom: false,
+          doubleClickZoom: false, boxZoom: false, keyboard: false, tap: false, zoomSnap: 0.25,
         });
         map.attributionControl.setPrefix(false); // no "Leaflet" link or flag
         L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -73,10 +84,10 @@
       map.setView([lat, lng], 13);
       if (circle) circle.remove();
       circle = L.circle([lat, lng], {
-        radius: radius(), color: "#166a3e", weight: 2, fillColor: "#166a3e", fillOpacity: 0.15,
+        radius: radius(), color: "#166a3e", weight: 2, opacity: 0.9, fillColor: "#166a3e", fillOpacity: 0.18,
       }).addTo(map);
       map.invalidateSize();
-      map.fitBounds(circle.getBounds(), { padding: [12, 12] });
+      map.fitBounds(circle.getBounds(), { padding: [24, 24] });
       caption(district);
     }
 
@@ -121,7 +132,7 @@
     // Onboarding shows the area step later: redraw when it becomes visible
     if ("IntersectionObserver" in window) {
       new IntersectionObserver((entries) => {
-        if (entries.some((e) => e.isIntersecting) && map) { map.invalidateSize(); if (circle) map.fitBounds(circle.getBounds(), { padding: [12, 12] }); }
+        if (entries.some((e) => e.isIntersecting) && map) { map.invalidateSize(); if (circle) map.fitBounds(circle.getBounds(), { padding: [24, 24] }); }
       }).observe(box);
     }
   }

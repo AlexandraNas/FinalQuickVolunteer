@@ -438,7 +438,16 @@
       $("[data-offer-status]", sent).textContent = `Your offer is ${labels[myApplication.application_status] || myApplication.application_status}.`;
     } else if (QV.me && QV.me.account_type === "admin" && form) {
       if (matchBox) matchBox.hidden = true;
-      form.innerHTML = '<h2>Administrator</h2><a class="btn btn--outline btn--block" href="admin.html#concerns">Reported concerns</a>';
+      form.innerHTML = `<h2>Administrator</h2>
+        <div class="stack" data-admin-task="${task.task_id}">
+          <button class="btn btn--outline btn--block" type="button" data-admin-delete>Delete this request</button>
+          <div class="admin-confirm" data-admin-confirm hidden>
+            <p class="body"><strong>Delete this request?</strong> It will be removed for everyone.</p>
+            <div class="form-buttons"><button class="btn btn--outline" type="button" data-admin-cancel>Cancel</button><button class="btn btn--primary" type="button" data-admin-confirm-delete>Delete</button></div>
+          </div>
+          <p class="form-error" role="alert" data-admin-error hidden></p>
+          <a class="link-green" href="admin.html#concerns">Reported concerns</a>
+        </div>`;
       const report = $("[data-task-report]");
       if (report) report.classList.add("admin-hidden");
     } else if (QV.me && task.creator_id === QV.me.user_id && form) {
@@ -485,7 +494,7 @@
   async function livePostPage() {
     const form = $("#post-form");
     if (!form) return;
-    if (QV.me && !canAsk()) {
+    if (QV.me && !canAsk() && roleOf() !== "admin") {
       form.innerHTML = '<h1 class="h-section">Post a help request</h1><p class="body">Your account is set up for giving help only. You can change this in <a class="link-green" href="profile.html">your profile</a>.</p>';
       return;
     }
@@ -1128,7 +1137,8 @@
       const roles = { help_seeker: "Ask for help", volunteer: "Give help", both: "Both" };
       members.innerHTML = list.length ? list.map((m) => {
         const suspended = m.account_status === "suspended";
-        return `<tr data-live-member="${m.user_id}">
+        const done = Number(m.completed_as_volunteer || 0) + Number(m.completed_as_requester || 0);
+        return `<tr data-live-member="${m.user_id}" data-member-name="${esc(`${m.first_name} ${m.last_name}`.toLowerCase())}" data-member-email="${esc(m.email.toLowerCase())}" data-joined="${esc(String(m.created_at || ""))}" data-role="${esc(m.account_type)}" data-verified="${m.verified ? "yes" : "no"}" data-completed="${done}">
           <td><strong>${esc(m.first_name)} ${esc(m.last_name)}</strong><br><span class="muted small">${esc(m.email)}</span></td>
           <td class="nowrap">${esc(fmtDay(m.created_at))}</td><td>${esc(roles[m.account_type] || m.account_type)}</td>
           <td>${m.verified ? `<span class="verified">${shield()}Verified</span>` : '<span class="muted">No</span>'}</td>
@@ -1136,6 +1146,7 @@
           <td><span class="status ${suspended ? "status--declined" : "status--accepted"}" data-status-label>${suspended ? "Suspended" : "Active"}</span></td>
           <td class="cell-actions"><button class="btn btn--outline btn--small" type="button" data-live-account="${suspended ? "active" : "suspended"}">${suspended ? "Reactivate" : "Suspend"}</button></td></tr>`;
       }).join("") : '<tr><td colspan="7" class="muted">No members yet.</td></tr>';
+      if (typeof window.qvMembersApply === "function") window.qvMembersApply();
     } catch (e) { members.innerHTML = `<tr><td colspan="7" class="muted">${esc(e.message)}</td></tr>`; }
 
     // 3. Reported concerns
@@ -1195,6 +1206,39 @@
     try { await request(); await liveAdmin(); } catch (e) { window.alert(e.message); busy(button, false); }
   }
 
+  /* ---------- Administrators: view the member forms without sending them ---------- */
+  const VIEW_ONLY_FORMS = ["post-form", "contact-form", "report-form"];
+  function adminViewOnly() {
+    VIEW_ONLY_FORMS.forEach((id) => {
+      const form = document.getElementById(id);
+      if (!form) return;
+      $$('[type="submit"]', form).forEach((b) => { b.disabled = true; b.textContent = "View only"; });
+    });
+  }
+
+  async function adminDeleteTask(box) {
+    const error = $("[data-admin-error]", box);
+    const button = $("[data-admin-confirm-delete]", box);
+    busy(button, true, "Deleting…");
+    try {
+      await api("DELETE", `/api/admin/tasks/${box.dataset.adminTask}`);
+      box.innerHTML = '<p class="body"><strong>Request deleted.</strong></p><a class="btn btn--outline btn--block" href="find-a-task.html">Back to tasks</a>';
+    } catch (e) {
+      error.textContent = e.message;
+      error.hidden = false;
+      busy(button, false);
+    }
+  }
+
+  document.addEventListener("click", (e) => {
+    const box = e.target.closest("[data-admin-task]");
+    if (!box) return;
+    const confirm = $("[data-admin-confirm]", box);
+    if (e.target.closest("[data-admin-delete]")) { confirm.hidden = false; e.target.closest("[data-admin-delete]").hidden = true; }
+    else if (e.target.closest("[data-admin-cancel]")) { confirm.hidden = true; $("[data-admin-delete]", box).hidden = false; }
+    else if (e.target.closest("[data-admin-confirm-delete]")) adminDeleteTask(box);
+  });
+
   /* ---------- Events: forms and buttons ---------- */
   // Capture phase: in live mode these run before the demo handlers in main.js
   document.addEventListener("submit", (e) => {
@@ -1205,6 +1249,11 @@
       "post-form": submitPost, "review-form": submitReview, "report-form": submitReport,
       "profile-form": submitProfile, "verify-form": submitVerification,
     };
+    if (roleOf() === "admin" && VIEW_ONLY_FORMS.includes(form.id)) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      return;
+    }
     const handler = handlers[form.id];
     if (!handler) return;
     e.preventDefault();
@@ -1250,7 +1299,7 @@
     }
     if (page === "admin.html" && roleOf() !== "admin") { location.replace("dashboard.html"); return; }
     // Administrators do not ask for or offer help: member pages lead to the admin dashboard
-    if (roleOf() === "admin" && ["dashboard.html", "my-tasks.html", "my-requests.html", "post-request.html", "onboarding.html"].includes(page)) {
+    if (roleOf() === "admin" && ["dashboard.html", "my-tasks.html", "my-requests.html", "onboarding.html"].includes(page)) {
       location.replace("admin.html");
       return;
     }
@@ -1264,6 +1313,7 @@
       "profile.html": liveProfilePage, "onboarding.html": liveOnboarding, "admin.html": liveAdmin,
     };
     if (pages[page]) await pages[page]();
+    if (roleOf() === "admin") adminViewOnly();
     document.documentElement.classList.add("qv-ready");
   }
 

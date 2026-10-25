@@ -159,7 +159,11 @@
       <h1>Small tasks, nearby or from home</h1>
     </div>
     <div class="filters filters--panel">
-      <label class="search-field"><img src="assets/icons/search-field.svg" alt="" width="20" height="20"><span class="sr-only">Search tasks</span><input type="search" id="task-search" placeholder="Search tasks"></label>
+      <div class="search-row">
+        <label class="search-field"><img src="assets/icons/search-field.svg" alt="" width="20" height="20"><span class="sr-only">Search tasks</span><input type="search" id="task-search" placeholder="Search tasks"></label>
+        <button class="loc-btn" type="button" id="task-location" aria-label="Choose a location"><img src="assets/icons/pin.svg" alt="" width="20" height="20"><span class="loc-btn__text" data-loc-label>Location</span></button>
+        <input type="hidden" id="task-place">
+      </div>
       <div class="filter-row">
         <div class="chips" role="group" aria-label="Help mode">
           <button class="chip" type="button" data-filter="all" aria-pressed="true">All tasks</button>
@@ -198,9 +202,6 @@
               <option value="5">Within 5 miles</option>
             </select>
           </label>
-          <label class="filter-select"><span>Postcode or area</span>
-            <input type="search" id="task-place" placeholder="E8 1AB or Hackney" autocomplete="postal-code">
-          </label>
           <button class="link-button clear-filters" type="button" id="clear-filters" hidden>Clear filters</button>
         </div>
       </div>
@@ -208,10 +209,6 @@
         <label class="checkbox"><input type="checkbox" id="task-verified">Only verified members</label>
       </div>
     </div>
-    <figure class="area-map task-map" id="task-map" hidden>
-      <figcaption class="area-map__label"><img src="assets/icons/pin-meta.svg" alt="" width="16" height="16"><span class="area-map__place"></span><span class="area-map__radius"></span></figcaption>
-      <div class="area-map__map" role="img" aria-label="Map of tasks near the postcode"></div>
-    </figure>
     <div class="task-list" id="task-list">
         <article class="task-card" data-id="1" data-mode="in_person" data-minutes="45" data-match="false" data-category="garden" data-skills="Gardening" data-area="Hackney" data-postcode="E8 3AA" data-verified="true">
           <div class="task-card__top"><span class="tag tag--in-person"><img src="assets/icons/pin-tag.svg" alt="" width="14" height="14">In person</span><span class="time-badge"><img src="assets/icons/clock.svg" alt="" width="14" height="14">45 min</span></div>
@@ -337,6 +334,7 @@
     </div>
   </footer>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="js/location-sheet.js"></script>
   <script src="js/postcode-districts.js"></script>
   <script src="js/main.js"></script>
   <script src="js/api.js"></script>

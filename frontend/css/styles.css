@@ -1348,6 +1348,23 @@ a.status:hover { text-decoration: underline; }
   .filter-select select { min-width: 0; width: 100%; font-size: 16px; }
 }
 @media (max-width: 380px) { .filter-selects { grid-template-columns: 1fr; } }
+/* Impact: coming soon list and the text next to it */
+.soon-list { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 12px; }
+.soon-list li { display: grid; gap: 2px; padding: 12px 16px; border: 1px solid rgba(39, 81, 61, .1); border-radius: 14px; background: rgba(255, 255, 255, .85); }
+.soon-list strong { font-size: 16px; color: var(--s-ink); }
+.soon-list span { font-size: 15px; line-height: 1.55; color: var(--s-muted); }
+.story-copy__title { font-size: 22px; font-weight: 700; line-height: 1.3; color: var(--s-ink); }
+
+/* Admin: members sort and filters, delete a request */
+.dash-panel[data-panel="members"] { gap: 16px; }
+.member-filters { align-items: flex-end; }
+.member-filters .filter-select input { width: 220px; }
+.member-filters .filter-select select { min-width: 170px; }
+.data-table tr[hidden] { display: none !important; }
+.admin-confirm { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--cream); }
+.admin-confirm[hidden], [data-admin-error][hidden] { display: none; }
+@media (max-width: 960px) { .member-filters .filter-select input { width: 100%; } }
+
 /* Administrator profile: member only sections are hidden */
 .admin-hidden { display: none !important; }
 
@@ -1516,7 +1533,10 @@ a.status:hover { text-decoration: underline; }
 .review-stars { color: #e0a100; letter-spacing: 1px; }
 .is-hidden-review .quote, .is-hidden-review h3 { opacity: .5; }
 /* Admin has three tabs: keep them inside the screen on small phones */
-@media (max-width: 600px) { [data-admin] .dash-tab { flex: 1 1 0; min-width: 0; padding: 10px 8px; font-size: 13px; white-space: normal; line-height: 1.2; } }
+@media (max-width: 600px) {
+  [data-admin] .dash-tabs { flex-wrap: wrap; border-radius: 22px; }
+  [data-admin] .dash-tab { flex: 1 1 auto; min-width: 0; padding: 10px 12px; font-size: 14px; white-space: nowrap; line-height: 1.2; }
+}
 
 /* ---------- Sprint 3: verification badge, member summary, filters ---------- */
 /* Verified members get a small badge on their profile picture */
@@ -1562,10 +1582,18 @@ html.qv-server:not(.qv-ready) main { visibility: hidden; animation: qv-show 0s l
 @keyframes qv-show { to { visibility: visible; } }
 
 /* Area map under the postcode field */
-.area-map { margin: 4px 0 0; display: grid; gap: 8px; }
+/* Area maps: a soft grey still map with one circle, like a marketplace location */
+.area-map { margin: 4px 0 0; display: grid; gap: 10px; }
 .area-map[hidden] { display: none; }
-.area-map__map { height: 240px; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--mint); z-index: 0; }
-.area-map__note { font-size: 14px; line-height: 1.45; color: #4a554e; }
+.area-map__label { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 15px; line-height: 1.4; color: var(--text); }
+.area-map__label img { width: 16px; height: 16px; flex-shrink: 0; }
+.area-map__place { font-weight: 600; }
+.area-map__radius { color: #4a554e; }
+.area-map__radius:not(:empty)::before { content: "·"; margin-right: 6px; color: #8a948d; }
+.area-map__map { height: 240px; border: 1px solid var(--border); border-radius: 16px; overflow: hidden; background: #eef0ee; z-index: 0; cursor: default; }
+.area-map__map .leaflet-tile-pane { filter: grayscale(1) brightness(1.06) contrast(0.88); }
+.area-map__map .leaflet-control-attribution { font-size: 10px; background: rgba(255, 255, 255, 0.75); }
+.area-map__map .leaflet-interactive { cursor: pointer; }
 @media (max-width: 600px) { .area-map__map { height: 200px; } }
 
 /* Header on tablets held sideways and small laptops (961 to 1279px): the full
@@ -1882,7 +1910,7 @@ html.qv-text .about-top__text .story-lead { font-size: calc(19px * var(--qv-text
 html.qv-text .filter-extra .checkbox { font-size: calc(15px * var(--qv-text)); }
 html.qv-text .verify-state { font-size: calc(15px * var(--qv-text)); }
 html.qv-text .file-input { font-size: calc(15px * var(--qv-text)); }
-html.qv-text .area-map__note { font-size: calc(14px * var(--qv-text)); }
+html.qv-text .area-map__label { font-size: calc(15px * var(--qv-text)); }
 
 /* Skip link: hidden until it gets keyboard focus */
 .skip-to-main {

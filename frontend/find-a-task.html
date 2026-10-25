@@ -205,10 +205,11 @@
         </div>
       </div>
       <div class="filter-extra">
-        <label class="checkbox"><input type="checkbox" id="task-verified">Only tasks from verified members</label>
+        <label class="checkbox"><input type="checkbox" id="task-verified">Only verified members</label>
       </div>
     </div>
     <figure class="area-map task-map" id="task-map" hidden>
+      <figcaption class="area-map__label"><img src="assets/icons/pin-meta.svg" alt="" width="16" height="16"><span class="area-map__place"></span><span class="area-map__radius"></span></figcaption>
       <div class="area-map__map" role="img" aria-label="Map of tasks near the postcode"></div>
     </figure>
     <div class="task-list" id="task-list">
@@ -297,7 +298,7 @@
           </div>
         </article>
     </div>
-    <p class="empty-state" id="empty-state">No tasks match these filters yet. Try another filter, or <button class="link-button" type="button" data-clear-filters>clear all filters</button>.</p>
+    <p class="empty-state" id="empty-state"><span data-empty-filters>No tasks match these filters yet. Try another filter, or <button class="link-button" type="button" data-clear-filters>clear all filters</button>.</span><span data-empty-none hidden>No tasks are available right now. Please check back soon.</span></p>
   </main>
   <footer class="site-footer">
     <div class="footer-columns">

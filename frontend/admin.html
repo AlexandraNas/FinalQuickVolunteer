@@ -182,23 +182,57 @@
       </div>
     </section>
     <section class="dash-panel" data-panel="members" aria-label="Members" hidden>
+      <div class="filter-selects member-filters" data-member-filters>
+        <label class="filter-select"><span>Search</span><input type="search" id="m-search" placeholder="Name or email"></label>
+        <label class="filter-select"><span>Sort by</span>
+          <select id="m-sort">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="name">Name A to Z</option>
+            <option value="completed">Most completed tasks</option>
+          </select>
+        </label>
+        <label class="filter-select"><span>Taking part as</span>
+          <select id="m-role">
+            <option value="">All</option>
+            <option value="help_seeker">Ask for help</option>
+            <option value="volunteer">Give help</option>
+            <option value="both">Both</option>
+          </select>
+        </label>
+        <label class="filter-select"><span>Verified</span>
+          <select id="m-verified">
+            <option value="">All</option>
+            <option value="yes">Verified</option>
+            <option value="no">Not verified</option>
+          </select>
+        </label>
+        <label class="filter-select"><span>Account</span>
+          <select id="m-status">
+            <option value="">All</option>
+            <option value="active">Active</option>
+            <option value="suspended">Suspended</option>
+          </select>
+        </label>
+      </div>
+      <p class="muted" data-members-none hidden>No members match these filters.</p>
       <div class="table-wrap">
         <table class="data-table">
           <thead><tr><th scope="col">Member</th><th scope="col">Joined</th><th scope="col">Taking part as</th><th scope="col">Verified</th><th scope="col">Completed tasks</th><th scope="col">Account</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
           <tbody data-members-body>
-            <tr data-member-row><td><strong>Sophie W.</strong><br><span class="muted small">sophie.w@example.com</span></td><td class="nowrap">9 Oct 2026</td><td>Both</td><td><span class="verified"><img src="assets/icons/shield.svg" alt="" width="14" height="14">Verified</span></td>
+            <tr data-member-row data-member-name="sophie w." data-member-email="sophie.w@example.com" data-joined="9 Oct 2026" data-role="both" data-verified="yes" data-completed="5"><td><strong>Sophie W.</strong><br><span class="muted small">sophie.w@example.com</span></td><td class="nowrap">9 Oct 2026</td><td>Both</td><td><span class="verified"><img src="assets/icons/shield.svg" alt="" width="14" height="14">Verified</span></td>
               <td class="nowrap"><strong>4</strong> helping · <strong>1</strong> asking</td>
               <td><span class="status status--accepted" data-status-label>Active</span></td>
               <td class="cell-actions"><button class="btn btn--outline btn--small" type="button" data-toggle-account>Suspend</button></td></tr>
-            <tr data-member-row><td><strong>Adam F.</strong><br><span class="muted small">adam.f@example.com</span></td><td class="nowrap">10 Oct 2026</td><td>Give help</td><td><span class="muted">No</span></td>
+            <tr data-member-row data-member-name="adam f." data-member-email="adam.f@example.com" data-joined="10 Oct 2026" data-role="volunteer" data-verified="no" data-completed="1"><td><strong>Adam F.</strong><br><span class="muted small">adam.f@example.com</span></td><td class="nowrap">10 Oct 2026</td><td>Give help</td><td><span class="muted">No</span></td>
               <td class="nowrap"><strong>1</strong> helping · <strong>0</strong> asking</td>
               <td><span class="status status--accepted" data-status-label>Active</span></td>
               <td class="cell-actions"><button class="btn btn--outline btn--small" type="button" data-toggle-account>Suspend</button></td></tr>
-            <tr data-member-row><td><strong>Nadia R.</strong><br><span class="muted small">nadia.r@example.com</span></td><td class="nowrap">11 Oct 2026</td><td>Ask for help</td><td><span class="verified"><img src="assets/icons/shield.svg" alt="" width="14" height="14">Verified</span></td>
+            <tr data-member-row data-member-name="nadia r." data-member-email="nadia.r@example.com" data-joined="11 Oct 2026" data-role="help_seeker" data-verified="yes" data-completed="3"><td><strong>Nadia R.</strong><br><span class="muted small">nadia.r@example.com</span></td><td class="nowrap">11 Oct 2026</td><td>Ask for help</td><td><span class="verified"><img src="assets/icons/shield.svg" alt="" width="14" height="14">Verified</span></td>
               <td class="nowrap"><strong>0</strong> helping · <strong>3</strong> asking</td>
               <td><span class="status status--accepted" data-status-label>Active</span></td>
               <td class="cell-actions"><button class="btn btn--outline btn--small" type="button" data-toggle-account>Suspend</button></td></tr>
-            <tr data-member-row><td><strong>Marcus T.</strong><br><span class="muted small">marcus.t@example.com</span></td><td class="nowrap">14 Oct 2026</td><td>Give help</td><td><span class="muted">No</span></td>
+            <tr data-member-row data-member-name="marcus t." data-member-email="marcus.t@example.com" data-joined="14 Oct 2026" data-role="volunteer" data-verified="no" data-completed="0"><td><strong>Marcus T.</strong><br><span class="muted small">marcus.t@example.com</span></td><td class="nowrap">14 Oct 2026</td><td>Give help</td><td><span class="muted">No</span></td>
               <td class="nowrap"><strong>0</strong> helping · <strong>0</strong> asking</td>
               <td><span class="status status--accepted" data-status-label>Active</span></td>
               <td class="cell-actions"><button class="btn btn--outline btn--small" type="button" data-toggle-account>Suspend</button></td></tr>

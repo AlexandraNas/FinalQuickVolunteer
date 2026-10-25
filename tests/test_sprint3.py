@@ -343,6 +343,37 @@ class Sprint3Tests(unittest.TestCase):
         self.patch(f"/api/admin/users/{volunteer_id}/status", json={"status": "active"})
         self.assertEqual(self.login_user("volunteer@test.com").status_code, 200)
 
+    def test_s19_admin_can_delete_a_task(self):
+        self.make_admin()
+        task_id, application_id = self.seeker_task_and_offer()
+
+        # Members cannot delete tasks, not even their own.
+        self.login_user("seeker@test.com")
+        self.assertEqual(self.client.delete(f"/api/admin/tasks/{task_id}",
+                                            headers=self.csrf_headers()).status_code, 403)
+
+        self.login_user("admin@test.com")
+        response = self.client.delete(f"/api/admin/tasks/{task_id}", headers=self.csrf_headers())
+        self.assertEqual(response.status_code, 200)
+
+        row = self.sql("SELECT status FROM tasks WHERE task_id = %s", (task_id,), fetch=True)[0]
+        self.assertEqual(row["status"], "closed")
+        offer = self.sql("SELECT status FROM task_applications WHERE application_id = %s",
+                         (application_id,), fetch=True)[0]
+        self.assertEqual(offer["status"], "rejected")
+        ids = [t["task_id"] for t in self.client.get("/api/tasks").get_json()]
+        self.assertNotIn(task_id, ids)
+        self.assertTrue(any(n["title"] == "Request removed"
+                            for n in self.notifications_for("seeker@test.com")))
+        self.assertTrue(any(n["title"] == "Request removed"
+                            for n in self.notifications_for("volunteer@test.com")))
+
+        # A closed task cannot be deleted again, and a missing one is not found.
+        self.assertEqual(self.client.delete(f"/api/admin/tasks/{task_id}",
+                                            headers=self.csrf_headers()).status_code, 409)
+        self.assertEqual(self.client.delete("/api/admin/tasks/999999",
+                                            headers=self.csrf_headers()).status_code, 404)
+
     def test_s18_admin_can_list_reviews(self):
         self.make_admin()
         self.login_user("admin@test.com")

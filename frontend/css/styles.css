@@ -1382,6 +1382,18 @@ a.status:hover { text-decoration: underline; }
   .soon-list__icon { width: 40px; height: 40px; }
 }
 
+/* Call to action boxes on phones: the heading on one line (Impact: the sentence too).
+   The size follows the screen width so it fits from 360px phones up. */
+@media (max-width: 600px) {
+  .story-cta { padding-left: 16px; padding-right: 16px; }
+  .story-cta .story-heading h2 { font-size: min(26px, calc((100vw - 80px) / 14)); white-space: nowrap; }
+  .story-cta--one-line .story-muted { font-size: min(15px, calc((100vw - 80px) / 25.5)); white-space: nowrap; }
+}
+/* Very narrow phones: the sentence would be too small on one line, so it wraps */
+@media (max-width: 374px) { .story-cta--one-line .story-muted { font-size: 13px; white-space: normal; } }
+/* With bigger text from the accessibility tools, let the lines wrap again */
+html.qv-text .story-cta .story-heading h2, html.qv-text .story-cta--one-line .story-muted { white-space: normal; }
+
 /* Admin: members sort and filters, delete a request */
 .dash-panel[data-panel="members"] { gap: 16px; }
 .member-filters { align-items: flex-end; }

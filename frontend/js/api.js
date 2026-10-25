@@ -152,18 +152,19 @@
       refreshHeader();
       return;
     }
-    let profile = {};
-    try { profile = (await api("GET", "/api/users/me/profile")).profile; } catch (e) { /* ignore */ }
+    // Profile and verification status at the same time
+    const [profileResult, verifications] = await Promise.all([
+      api("GET", "/api/users/me/profile").then((r) => r.profile || {}).catch(() => ({})),
+      QV.me.account_type !== "admin"
+        ? api("GET", "/api/verifications/me").then((r) => r.verifications || []).catch(() => [])
+        : Promise.resolve([]),
+    ]);
+    const profile = profileResult;
     QV.profile = profile;
     QV.mySkillIds = new Set((profile.skills || []).map((s) => s.skill_id));
 
     let verification = profile.verified ? "approved" : null;
-    if (!verification && QV.me.account_type !== "admin") {
-      try {
-        const latest = ((await api("GET", "/api/verifications/me")).verifications || [])[0];
-        verification = latest ? latest.status : null;
-      } catch (e) { /* ignore */ }
-    }
+    if (!verification && verifications[0]) verification = verifications[0].status;
     const old = storeGet("qv_profile", {});
     const sameUser = old.userId === QV.me.user_id;
     const availability = availabilityParse(profile.availability_notes);
@@ -247,7 +248,8 @@
   /* ---------- Task cards (same data attributes as the demo cards in main.js) ---------- */
   async function loadOpenTasks() {
     const tasks = await api("GET", "/api/tasks");
-    await Promise.all(tasks.map(async (t) => {
+    // The list already carries each task's skills; older servers did not, so ask only then
+    await Promise.all(tasks.filter((t) => !Array.isArray(t.skills)).map(async (t) => {
       try { t.skills = (await api("GET", `/api/tasks/${t.task_id}/skills`)).skills || []; } catch (e) { t.skills = []; }
     }));
     return tasks;
@@ -363,15 +365,14 @@
     const pageEl = $("[data-task-page]");
     if (!pageEl) return;
     const id = Number(params.get("id"));
-    let task = null;
-    try { task = (await api("GET", "/api/tasks")).find((t) => t.task_id === id) || null; } catch (e) { /* ignore */ }
-    let myApplication = null;
-    if (QV.me && canVolunteer()) {
-      try {
-        myApplication = ((await api("GET", "/api/my-applications")).applications || []).find((a) => a.task_id === id) || null;
-        if (!task && myApplication) task = { ...myApplication, task_id: id };
-      } catch (e) { /* ignore */ }
-    }
+    // The task list and my offers are asked for at the same time
+    const [list, applications] = await Promise.all([
+      api("GET", "/api/tasks").catch(() => []),
+      QV.me && canVolunteer() ? api("GET", "/api/my-applications").then((r) => r.applications || []).catch(() => []) : Promise.resolve([]),
+    ]);
+    let task = list.find((t) => t.task_id === id) || null;
+    const myApplication = applications.find((a) => a.task_id === id) || null;
+    if (!task && myApplication) task = { ...myApplication, task_id: id };
     const form = $("#offer-form");
     const sent = $("#offer-sent");
     if (!task) {
@@ -409,8 +410,10 @@
 
     // Skills the task needs, highlighting the volunteer's own
     const skillBox = $("[data-task-skills]", pageEl);
-    let skills = [];
-    try { skills = (await api("GET", `/api/tasks/${id}/skills`)).skills || []; } catch (e) { /* ignore */ }
+    let skills = Array.isArray(task.skills) ? task.skills : [];
+    if (!Array.isArray(task.skills)) {
+      try { skills = (await api("GET", `/api/tasks/${id}/skills`)).skills || []; } catch (e) { /* ignore */ }
+    }
     if (skillBox) {
       skillBox.innerHTML = skills.length ? skills.map((s) => {
         const mine = QV.mySkillIds.has(s.skill_id);
@@ -1292,6 +1295,7 @@
     if (!QV.live) return; // demo prototype: main.js does everything
     document.documentElement.classList.add("qv-live");
     wrapSaveProfile();
+    const skillsReady = loadSkills(); // in parallel with the account check
     await loadMe();
 
     // Pages that need an account
@@ -1306,7 +1310,7 @@
       return;
     }
 
-    await loadSkills();
+    await skillsReady;
     liveNotifications();
     const pages = {
       "find-a-task.html": liveFindPage, "dashboard.html": liveDashboard, "task.html": liveTaskPage,

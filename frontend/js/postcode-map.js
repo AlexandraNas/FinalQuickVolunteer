@@ -1,14 +1,14 @@
-/* QuickVolunteer · area map under the postcode field
-   Shows a circle for the area of the postcode, never the exact address:
-   - Onboarding and My profile: the circle is how far the member is happy to travel.
-   - Post a request: the circle is the approximate area of the task.
+/* QuickVolunteer · location button under the postcode field
    Members type only a postcode. The name of the area (for example "Hackney Central")
    is worked out from it with postcodes.io and saved in the hidden area field; other
    members see that name, never the postcode. Without internet the first part of the
-   postcode (for example "E8") is saved instead, and the map stays hidden. */
+   postcode (for example "E8") is saved instead.
+   Under the field a pin button shows the area; clicking it opens the
+   "Choose a location" panel (js/location-sheet.js) with the map:
+   - Onboarding and My profile: the circle is how far the member is happy to travel.
+   - Post a request: the dot is the approximate area of the task. */
 (function () {
   "use strict";
-  const MILE = 1609.34;
   const FIELDS = [
     { postcode: "postcode", area: "area", distance: "distance" },     // onboarding, profile
     { postcode: "req-postcode", area: "req-area", distance: null },   // post a request
@@ -29,73 +29,44 @@
     const postcode = document.getElementById(ids.postcode);
     const area = document.getElementById(ids.area);
     if (!postcode || !area) return;
-    const canMap = !!window.L;
 
-    // Map box, placed under the postcode field
+    // Pin button, placed under the row that holds the postcode
     const row = postcode.closest(".field-row") || postcode.closest(".field");
-    const box = document.createElement("figure");
-    box.className = "area-map";
-    box.hidden = true;
-    box.innerHTML = '<figcaption class="area-map__label" aria-live="polite"><img src="assets/icons/pin-meta.svg" alt="" width="16" height="16">' +
-      '<span class="area-map__place"></span><span class="area-map__radius"></span></figcaption>' +
-      '<div class="area-map__map" role="img" aria-label="Map of the area around your postcode"></div>';
-    row.insertAdjacentElement("afterend", box);
-    const place = box.querySelector(".area-map__place");
-    const radiusText = box.querySelector(".area-map__radius");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "loc-chip";
+    button.hidden = true;
+    button.innerHTML = '<span class="loc-chip__icon"><img src="assets/icons/pin.svg" alt="" width="18" height="18"></span>' +
+      '<span class="loc-chip__text"><span class="loc-chip__place"></span><span class="loc-chip__radius"></span></span>' +
+      '<span class="loc-chip__map">Map</span>';
+    button.setAttribute("aria-label", "Show the area on a map");
+    row.insertAdjacentElement("afterend", button);
+    const placeEl = button.querySelector(".loc-chip__place");
+    const radiusEl = button.querySelector(".loc-chip__radius");
 
-    let map = null;
-    let circle = null;
-    let lastDistrict = "";
     let typedPostcode = false; // the member changed the postcode themselves
 
-    function radius() {
-      if (!ids.distance) return 800; // a task: about half a mile around the area
+    const miles = () => {
+      if (!ids.distance) return null;
       const picked = document.querySelector(`[name="${ids.distance}"]:checked`);
-      return (picked ? Number(picked.value) : 1) * MILE;
-    }
-
-    // Like a marketplace location: the place name, then the radius
-    function caption(district) {
+      return picked ? Number(picked.value) : 1;
+    };
+    const placeName = (district) => {
       const name = area.value.trim();
-      place.textContent = name && name !== district ? `${name}, ${district}` : district;
-      if (ids.distance) {
-        const miles = radius() / MILE;
-        radiusText.textContent = `Within ${miles} ${miles === 1 ? "mile" : "miles"}`;
-      } else {
-        radiusText.textContent = "";
-      }
-    }
+      return name && name !== district ? `${name}, ${district}` : district;
+    };
 
-    function draw(lat, lng, district) {
-      if (!canMap) { box.hidden = true; return; }
-      box.hidden = false;
-      if (!map) {
-        // A still map, like a marketplace location preview: no zooming or dragging
-        map = L.map(box.querySelector(".area-map__map"), {
-          zoomControl: false, scrollWheelZoom: false, dragging: false, touchZoom: false,
-          doubleClickZoom: false, boxZoom: false, keyboard: false, tap: false, zoomSnap: 0.25,
-        });
-        map.attributionControl.setPrefix(false); // no "Leaflet" link or flag
-        L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          maxZoom: 18,
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        }).addTo(map);
-      }
-      map.setView([lat, lng], 13);
-      if (circle) circle.remove();
-      circle = L.circle([lat, lng], {
-        radius: radius(), color: "#166a3e", weight: 2, opacity: 0.9, fillColor: "#166a3e", fillOpacity: 0.18,
-      }).addTo(map);
-      map.invalidateSize();
-      map.fitBounds(circle.getBounds(), { padding: [24, 24] });
-      caption(district);
+    function label(district) {
+      placeEl.textContent = placeName(district);
+      const m = miles();
+      radiusEl.textContent = m ? `Within ${m} ${m === 1 ? "mile" : "miles"}` : "";
     }
 
     // Saved profiles keep their area name until the member changes the postcode.
     async function fillArea(value, district) {
-      if (!typedPostcode && area.value.trim()) return;
+      if (!typedPostcode && area.value.trim()) { label(district); return; }
       area.value = district;               // straight away, works offline
-      caption(district);
+      label(district);
       try {
         const asked = clean(value);
         const r = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(asked)}`);
@@ -104,21 +75,50 @@
         const name = result.admin_ward || result.admin_district || "";
         if (name && clean(postcode.value) === asked) {
           area.value = name;
-          caption(district);
+          label(district);
         }
       } catch (e) { /* offline: keep the postcode area, for example "E8" */ }
     }
 
     function update() {
       const value = postcode.value;
-      if (!isFullPostcode(value)) { box.hidden = true; return; }
+      if (!isFullPostcode(value)) { button.hidden = true; return; }
       const district = districtOf(value);
-      const centre = (window.QV_DISTRICTS || {})[district];
-      if (!centre) { box.hidden = true; fillArea(value, district); return; }
-      lastDistrict = district;
-      draw(centre[0], centre[1], district);
+      button.hidden = false;
       fillArea(value, district);
     }
+
+    function setPostcode(value) {
+      postcode.value = clean(value);
+      typedPostcode = true;
+      postcode.dispatchEvent(new Event("input", { bubbles: true }));
+      postcode.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    button.addEventListener("click", () => {
+      if (!window.QVLocation) return;
+      const district = districtOf(postcode.value);
+      const options = Array.from(document.querySelectorAll(`[name="${ids.distance}"]`)).map((r) => Number(r.value));
+      window.QVLocation.open({
+        title: ids.distance ? "Your area" : "Area of the task",
+        place: placeName(district),
+        centre: (window.QV_DISTRICTS || {})[district] || null,
+        miles: miles(),
+        editLabel: "Postcode",
+        editPlaceholder: "E8 1AB",
+        editValue: postcode.value,
+        radiusOptions: ids.distance && options.length ? options : null,
+        radiusValue: miles(),
+        onApply: ({ value, miles: m }) => {
+          if (value && clean(value) !== clean(postcode.value)) setPostcode(value);
+          if (ids.distance && m) {
+            const radio = document.querySelector(`[name="${ids.distance}"][value="${m}"]`);
+            if (radio) { radio.checked = true; radio.dispatchEvent(new Event("change", { bubbles: true })); }
+          }
+        },
+        onLocate: ({ postcode: found }) => setPostcode(found),
+      });
+    });
 
     postcode.addEventListener("input", () => { typedPostcode = true; update(); });
     postcode.addEventListener("change", update);
@@ -129,12 +129,6 @@
     update();
     if (window.QV && window.QV.ready) window.QV.ready.then(update);
     window.addEventListener("load", update);
-    // Onboarding shows the area step later: redraw when it becomes visible
-    if ("IntersectionObserver" in window) {
-      new IntersectionObserver((entries) => {
-        if (entries.some((e) => e.isIntersecting) && map) { map.invalidateSize(); if (circle) map.fitBounds(circle.getBounds(), { padding: [24, 24] }); }
-      }).observe(box);
-    }
   }
 
   function start() { FIELDS.forEach(setUp); }

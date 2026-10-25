@@ -467,7 +467,6 @@ function setUpTaskFilters() {
   const distanceBox = document.getElementById("task-distance");
   const placeBox = document.getElementById("task-place");
   const verifiedBox = document.getElementById("task-verified");
-  const mapBox = document.getElementById("task-map");
   const cards = () => Array.from(list.querySelectorAll(".task-card"));
 
   // Search text can also come from the mobile menu search (?q=...)
@@ -512,76 +511,63 @@ function setUpTaskFilters() {
     apply();
   }
 
-  // Map of the tasks shown: a circle for the search area and one small circle
-  // for the area of each in person task (never the exact address).
-  let map = null;
-  let layer = null;
-  function drawMap(maxMiles) {
-    if (!mapBox || !window.L || !window.QV_DISTRICTS) return;
+  // Location: the pin button shows the place in use and opens the
+  // "Choose a location" panel (js/location-sheet.js) with the tasks on a map.
+  const locButton = document.getElementById("task-location");
+  function placeLabel() {
+    const typed = placeText();
+    if (typed) return districtOf(typed) ? typed.toUpperCase() : typed;
+    const own = loadProfile();
+    const from = districtOf(own.postcode);
+    return from ? `${own.area ? own.area + ", " : ""}${from}` : "";
+  }
+  function showLocation(maxMiles) {
+    if (!locButton) return;
+    const place = placeLabel();
+    const label = locButton.querySelector("[data-loc-label]");
+    label.textContent = place ? (origin() ? `${place} · ${maxMiles || 3} mi` : place) : "Location";
+    locButton.classList.toggle("is-set", !!place);
+  }
+  function openLocation() {
+    if (!window.QVLocation) return;
     const from = origin();
+    const maxMiles = distanceBox && distanceBox.value ? Number(distanceBox.value) : 3;
     const visible = cards().filter((c) => !c.hidden && c.dataset.mode === "in_person" && districtOf(c.dataset.postcode));
-    if (!from && !visible.length) { mapBox.hidden = true; return; }
-    mapBox.hidden = false;
-    // Place name and radius above the map
-    const placeLabel = mapBox.querySelector(".area-map__place");
-    const radiusLabel = mapBox.querySelector(".area-map__radius");
-    if (placeLabel) {
-      const typed = placeText();
-      const own = loadProfile();
-      placeLabel.textContent = from
-        ? (districtOf(typed) ? `${typed.toUpperCase()}` : `${own.area ? own.area + ", " : ""}${from}`)
-        : "London";
-      radiusLabel.textContent = from ? `Within ${maxMiles || 3} ${(maxMiles || 3) === 1 ? "mile" : "miles"}` : "";
-    }
-    if (!map) {
-      // A still map, like a marketplace location preview; the dots can still be clicked
-      map = L.map(mapBox.querySelector(".area-map__map"), {
-        zoomControl: false, scrollWheelZoom: false, dragging: false, touchZoom: false,
-        doubleClickZoom: false, boxZoom: false, keyboard: false, tap: false, zoomSnap: 0.25,
-      });
-      map.attributionControl.setPrefix(false); // no "Leaflet" link or flag
-      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 18,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      }).addTo(map);
-    }
-    if (layer) layer.remove();
-    layer = L.featureGroup().addTo(map);
-    if (from) {
-      const c = window.QV_DISTRICTS[from];
-      L.circle(c, { radius: (maxMiles || 3) * 1609.34, color: "#166a3e", weight: 2, opacity: 0.9, fillColor: "#166a3e", fillOpacity: 0.18 }).addTo(layer);
-    }
     const groups = {};
     visible.forEach((card) => { const d = districtOf(card.dataset.postcode); (groups[d] = groups[d] || []).push(card); });
-    Object.keys(groups).forEach((d) => {
+    const dots = Object.keys(groups).map((d) => {
       const items = groups[d].map((card) => {
         const title = card.querySelector("h2, h3");
         const link = card.querySelector("a[href]");
         const text = escapeHtml(title ? title.textContent.trim() : "Task");
         return link ? `<a href="${escapeHtml(link.getAttribute("href"))}">${text}</a>` : text;
       });
-      const name = groups[d][0].dataset.area || d;
-      L.circleMarker(window.QV_DISTRICTS[d], { radius: 7, color: "#ffffff", weight: 2, fillColor: "#166a3e", fillOpacity: 1 })
-        .bindPopup(`<strong>${escapeHtml(name)}</strong><br>${items.join("<br>")}`)
-        .addTo(layer);
+      return { at: window.QV_DISTRICTS[d], html: `<strong>${escapeHtml(groups[d][0].dataset.area || d)}</strong><br>${items.join("<br>")}` };
     });
-    const fit = () => {
-      map.invalidateSize();
-      if (layer.getLayers().length) map.fitBounds(layer.getBounds(), { padding: [24, 24], maxZoom: 14 });
-    };
-    map.setView([51.5, -0.1], 11);
-    fit();
-    requestAnimationFrame(fit);
+    const own = loadProfile();
+    const areas = Array.from(new Set(cards().map((c) => c.dataset.area).filter(Boolean))).sort();
+    const suggestions = [own.area, ...areas].filter((a, i, all) => a && all.indexOf(a) === i).slice(0, 6);
+    window.QVLocation.open({
+      title: "Choose a location",
+      place: placeLabel() || "London",
+      centre: from ? window.QV_DISTRICTS[from] : null,
+      miles: from ? maxMiles : null,
+      dots,
+      editValue: placeText(),
+      editLabel: "Postcode or area",
+      radiusOptions: [1, 3, 5],
+      radiusValue: maxMiles,
+      suggestions,
+      onApply: ({ value, miles }) => {
+        placeBox.value = value || "";
+        if (distanceBox && miles) distanceBox.value = String(miles);
+        placeChanged();
+      },
+      onLocate: ({ postcode }) => { placeBox.value = postcode; placeChanged(); },
+    });
   }
-  // Fit again when the map scrolls into view (its size is known by then)
-  if (mapBox && "IntersectionObserver" in window) {
-    new IntersectionObserver((entries) => {
-      if (map && layer && entries.some((e) => e.isIntersecting)) {
-        map.invalidateSize();
-        if (layer.getLayers().length) map.fitBounds(layer.getBounds(), { padding: [24, 24], maxZoom: 14 });
-      }
-    }).observe(mapBox);
-  }
+  function placeChanged() { prepareDistance(); sortCards(); apply(); }
+  if (locButton) locButton.addEventListener("click", openLocation);
 
   function apply() {
     const text = search.value.trim().toLowerCase();
@@ -627,7 +613,7 @@ function setUpTaskFilters() {
     empty.querySelectorAll("[data-empty-none]").forEach((el) => { el.hidden = !none; });
     empty.querySelectorAll("[data-empty-filters]").forEach((el) => { el.hidden = none; });
     empty.classList.toggle("is-visible", shown === 0);
-    drawMap(maxMiles);
+    showLocation(maxMiles);
   }
 
   chips.forEach((chip) => {
@@ -639,7 +625,6 @@ function setUpTaskFilters() {
   });
   search.addEventListener("input", apply);
   // Type of help, duration, distance, postcode or area and verified members (US-05)
-  if (placeBox) placeBox.addEventListener("input", () => { prepareDistance(); sortCards(); apply(); });
   [typeBox, lengthBox, distanceBox, verifiedBox].forEach((box) => { if (box) box.addEventListener("change", apply); });
   // Clear filters: back to all tasks with nothing selected
   document.querySelectorAll("#clear-filters, [data-clear-filters]").forEach((btn) => btn.addEventListener("click", () => {

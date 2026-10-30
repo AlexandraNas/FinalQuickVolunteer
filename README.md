@@ -82,6 +82,13 @@ Each step takes a minute or two. Use the live website and the logins above.
 
 ---
 
+## How the team worked on the code
+
+We worked on the code offline, together in class sessions and through our shared OneDrive folder, rather than each of us pushing to GitHub. To keep one clean, working version of the project, we agreed that Alexandra would be the only one to upload to this repository: when a part was ready and tested, it was combined on her computer and uploaded here.
+
+
+---
+
 ## How the project is organised
 
 | Folder | What it holds |
@@ -89,7 +96,7 @@ Each step takes a minute or two. Use the live website and the logins above.
 | `frontend/` | The website: HTML pages, `css/styles.css`, `js/` and `assets/` |
 | `backend/` | The Flask API (Python) that serves the website and talks to the database |
 | `database/` | `schema.sql` (15 tables) and the demo data scripts in `seeds/` |
-| `tests/` | 319 automated tests for the API |
+| `tests/` | 104 automated API tests (the runner reports 320 runs because three modules reuse the core test class). Full output: `evidence/unittest_run_27Oct2026.log` |
 
 The live site runs on **Render** and the MySQL database on **Aiven**. `DEPLOY_RENDER.md` explains the set up and `CONNECTING_FRONTEND.md` explains how the website talks to the API.
 

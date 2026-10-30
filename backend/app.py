@@ -1,8 +1,7 @@
 
 import os
-from pathlib import Path
 
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_wtf.csrf import CSRFProtect, generate_csrf
 
@@ -24,13 +23,7 @@ from helpers import VERIFIED_SQL
 # FLASK APPLICATION CONFIGURATION
 # ==========================================
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-
-app = Flask(
-    __name__,
-    template_folder=str(BASE_DIR / "templates"),
-    static_folder=str(BASE_DIR / "static")
-)
+app = Flask(__name__)
 
 app.config.update(
     SECRET_KEY=os.environ.get("FLASK_SECRET_KEY"),
@@ -143,16 +136,6 @@ def fetch_open_tasks():
 
 # The home page ("/") and the other website pages are served by
 # frontend_routes.py from the "frontend" folder.
-
-
-# ==========================================
-# TASKS PAGE
-# ==========================================
-
-@app.route("/tasks")
-def tasks_page():
-    tasks = fetch_open_tasks()
-    return render_template("tasks.html", tasks=tasks)
 
 
 # ==========================================

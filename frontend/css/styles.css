@@ -196,7 +196,7 @@ body.menu-open { overflow: hidden; }
   white-space: nowrap; margin-right: 8px;
 }
 .tagline img { width: 110px; height: 7.5px; }
-.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
+.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px; }
 .step { display: flex; flex-direction: column; gap: 24px; }
 .step__content { display: flex; flex-direction: column; gap: 12px; min-height: 124px; }
 .step__label {
@@ -2182,3 +2182,72 @@ html.qv-colour-dark img[src$=".svg"] { filter: none; }
 /* Colours: soft cream background, easier on the eyes for some readers */
 html.qv-colour-cream { --white: #fbf4e2; --cream: #f3e8cc; --mint: #eef0dc; }
 html.qv-colour-cream body { background: #fbf4e2; }
+
+/* ---------- Steps: images line up along the bottom on wide screens ---------- */
+@media (min-width: 961px) {
+  .step__image { margin-top: auto; }
+}
+
+/* ---------- Home page video (Watch video) ---------- */
+.video-modal {
+  width: min(1100px, calc(100vw - 32px));
+  max-width: none;
+  padding: 0;
+  border: 0;
+  border-radius: 20px;
+  background: #000;
+  overflow: visible;
+}
+.video-modal::backdrop { background: rgba(13, 21, 17, 0.78); }
+.video-modal__player {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  max-height: calc(100vh - 120px);
+  border-radius: 20px;
+  background: #000;
+}
+.video-modal__close {
+  position: absolute;
+  top: -52px;
+  right: 0;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--white);
+  color: var(--text);
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+.video-modal__close:focus-visible { outline: 3px solid var(--yellow); outline-offset: 2px; }
+@media (max-width: 600px) {
+  .video-modal { width: calc(100vw - 24px); border-radius: 14px; }
+  .video-modal__player { border-radius: 14px; }
+  .video-modal__close { top: -50px; width: 40px; height: 40px; }
+}
+
+/* ---------- Accessibility tools: more compact on tablets and phones ---------- */
+@media (min-width: 601px) and (max-width: 960px) {
+  .a11y-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .a11y-panel { padding: 14px 12px; }
+  .a11y-panel__head h2 { font-size: 18px; }
+  .a11y-panel__head p { margin-top: 2px; font-size: 13px; }
+  .a11y-groups { gap: 10px; margin-top: 12px; }
+  .a11y-group { gap: 8px; padding: 12px; border-radius: 12px; }
+  .a11y-group h3 { font-size: 15px; }
+  .a11y-hint { font-size: 13px; }
+  .a11y-buttons { gap: 6px; }
+  .a11y-btn { min-height: 40px; padding: 6px 10px; border-radius: 9px; font-size: 14px; }
+  .a11y-btn--small { min-height: 36px; font-size: 13px; }
+  .a11y-btn--square { width: 44px; font-size: 16px; }
+  .a11y-size__value { font-size: 16px; }
+  /* Text and Focus options sit side by side instead of one per row */
+  .a11y-buttons--stack { flex-direction: row; }
+  .a11y-buttons--stack .a11y-btn { flex: 1 1 0; min-width: 0; font-size: 13px; line-height: 1.25; }
+  .a11y-panel__foot { margin-top: 12px; }
+}

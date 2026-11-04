@@ -1500,3 +1500,24 @@ function setUpAdminMenu() {
     window.addEventListener("hashchange", setUpAdminMenu);
   }
 }
+
+
+// ---------- Home page video (Watch video) ----------
+(function setUpVideo() {
+  const dialog = document.getElementById("intro-video");
+  const openBtn = document.querySelector("[data-video-open]");
+  if (!dialog || !openBtn || typeof dialog.showModal !== "function") return;
+  const video = dialog.querySelector("video");
+  const close = () => { if (dialog.open) dialog.close(); };
+  openBtn.addEventListener("click", () => {
+    dialog.showModal();
+    video.muted = true;
+    const p = video.play();
+    if (p && p.catch) p.catch(() => {});
+  });
+  dialog.querySelector("[data-video-close]").addEventListener("click", close);
+  // Clicking the dark area around the video closes it
+  dialog.addEventListener("click", (e) => { if (e.target === dialog) close(); });
+  // Escape closes the dialog natively; always stop the video and return focus
+  dialog.addEventListener("close", () => { video.pause(); openBtn.focus(); });
+})();

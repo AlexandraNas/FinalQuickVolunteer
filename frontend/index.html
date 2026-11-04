@@ -165,7 +165,7 @@
         <p class="hero__text">Find simple ways to help your community, in person or from home.</p>
         <div class="hero__actions">
           <a class="btn btn--primary" href="find-a-task.html">Offer Support →</a>
-          <button class="btn btn--outline" type="button"><span class="play"><img src="assets/icons/play.svg" alt="" width="36" height="36"></span>Watch video</button>
+          <button class="btn btn--outline" type="button" data-video-open aria-haspopup="dialog" aria-controls="intro-video"><span class="play"><img src="assets/icons/play.svg" alt="" width="36" height="36"></span>Watch video</button>
         </div>
         <ul class="trust-points" role="list" style="list-style:none;margin:0;padding:0">
           <li class="trust-point"><img src="assets/icons/check.svg" alt="" width="20" height="20">Verified members</li>
@@ -285,6 +285,14 @@
       <p>© 2026 QuickVolunteer. Small Tasks. Big Impact.</p>
     </div>
   </footer>
+
+  <dialog class="video-modal" id="intro-video" aria-label="QuickVolunteer video">
+    <button class="video-modal__close" type="button" data-video-close aria-label="Close video">&times;</button>
+    <video class="video-modal__player" controls muted playsinline preload="none" poster="assets/video/quickvolunteer-video-poster.jpg">
+      <source src="assets/video/quickvolunteer-video.mp4" type="video/mp4">
+      Your browser cannot play this video.
+    </video>
+  </dialog>
   <script src="js/main.js"></script>
   <script src="js/api.js"></script>
 </body>
